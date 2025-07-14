@@ -1,80 +1,14 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RajFlix GDToT Movie List</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>RajFlix Auto Poster</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-<body style="background:#111;color:#fff;"><div class="container mt-4">
-  <h2 class="mb-4 text-center">RajFlix GDToT Movie List</h2>
-  <div id="movieList" class="row"></div>
-</div><script src="https://apis.google.com/js/api.js"></script><script>
-const folderId = "119Dj7LDs3uf9ni6J6nHWt2TdxYbQ9O3Z";
-const client_key = "275d762c21f3a57f54f0001eefef97ab";
-const api_url = "https://api.themoviedb.org/3";
-const img_path = "https://image.tmdb.org/t/p/w500";
+<body>
+  <h1>RajFlix Auto Poster</h1>
+  <div id="movies" class="grid"></div>
 
-const serviceAccountEmail = "rajflix-393@upbeat-beach-456816-m6.iam.gserviceaccount.com";
-
-async function listFiles() {
-  const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${client_key}&fields=files(name,id,mimeType)`;
-  const res = await fetch(url);
-  const data = await res.json();
-
-  data.files.forEach(file => {
-    if(file.mimeType !== 'application/vnd.google-apps.folder') {
-      const { title, year } = extractTitleAndYear(file.name);
-      searchTMDB(title, year, `https://drive.google.com/uc?id=${file.id}&export=download`);
-    }
-  });
-}
-
-function extractTitleAndYear(name) {
-  const yearMatch = name.match(/(19|20)\d{2}/);
-  const year = yearMatch ? yearMatch[0] : null;
-
-  const title = name.replace(/\./g, ' ')
-                     .replace(/(1080p|720p|480p|BluRay|WEBRip|HDRip|WEB-DL|x264|x265|HEVC|mp4|mkv)/gi, '')
-                     .replace(/(19|20)\d{2}/g, '')
-                     .replace(/\s+/g, ' ')
-                     .trim();
-
-  return { title, year };
-}
-
-function searchTMDB(title, year, videoUrl) {
-  let tmdbUrl = `${api_url}/search/movie?api_key=${client_key}&query=${encodeURIComponent(title)}`;
-  if (year) tmdbUrl += `&year=${year}`;
-
-  fetch(tmdbUrl)
-    .then(res => res.json())
-    .then(data => {
-      if(data.results && data.results.length > 0) {
-        showMovieCard(data.results[0], videoUrl);
-      } else {
-        showMovieCard({title: title, poster_path: null, release_date: year || ''}, videoUrl);
-      }
-    });
-}
-
-function showMovieCard(movie, videoUrl) {
-  const container = document.getElementById('movieList');
-  const poster = movie.poster_path ? `${img_path}${movie.poster_path}` : 'https://via.placeholder.com/500x750?text=No+Image';
-
-  container.innerHTML += `
-    <div class="col-md-3 mb-4">
-      <div class="card bg-dark text-white h-100">
-        <img src="${poster}" class="card-img-top" alt="${movie.title}">
-        <div class="card-body">
-          <h5 class="card-title">${movie.title}</h5>
-          <p class="card-text" style="font-size:12px">${movie.release_date || 'Unknown Year'}</p>
-          <a href="${videoUrl}" class="btn btn-primary btn-block" target="_blank">Watch Now</a>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-listFiles();
-</script></body>
+  <script src="script.js"></script>
+</body>
 </html>
