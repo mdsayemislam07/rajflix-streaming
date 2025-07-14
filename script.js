@@ -1,13 +1,12 @@
 const proxy_api = "https://raj-flix.movielovers.workers.dev/";
 const img_path = "https://image.tmdb.org/t/p/w500";
-const drive_api = "https://script.google.com/macros/s/AKfycbxK21Hi11PyGJ96T3_YhGWBOQvkSTtAnWvQckUXofBemfLW_AFVM1w3fqAl4RceCBWB/exec";
+const drive_api = "https://script.google.com/macros/s/AKfycbxiZQffAaRXzgq_w8tcP-Sal5xq-sqsTC5GKBeAJkxKPUNkgNfxATJ21HL8CjPq79MN/exec";
 
 let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
 const cacheKey = "tmdbCacheV1";
 
-// Load Cache
 let tmdbCache = JSON.parse(localStorage.getItem(cacheKey)) || {};
 
 // Title Cleaner + Year Extractor
