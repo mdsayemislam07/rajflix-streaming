@@ -1,15 +1,13 @@
-const proxy_api = "https://raj-flix.movielovers.workers.dev/";
+const client_key = "275d762c21f3a57f54f0001eefef97ab";
+const api_url = "https://api.themoviedb.org/3";
 const img_path = "https://image.tmdb.org/t/p/w500";
-const drive_api = "https://script.google.com/macros/s/AKfycbxiZQffAaRXzgq_w8tcP-Sal5xq-sqsTC5GKBeAJkxKPUNkgNfxATJ21HL8CjPq79MN/exec";
+const drive_api = "https://script.google.com/macros/s/AKfycbzh3fRccgpIXlskFuBHcEuWCQkQzWP7Rt8a8BedlgA2dnpI3YDNcOLGKnylmgXGfk7u/exec";
 
 let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
-const cacheKey = "tmdbCacheV1";
+const cache = {};
 
-let tmdbCache = JSON.parse(localStorage.getItem(cacheKey)) || {};
-
-// Title Cleaner + Year Extractor
 function extractTitleAndYear(fileName) {
   let name = fileName.replace(/\.[^/.]+$/, "");
   name = name.replace(/[\._]/g, " ");
@@ -21,54 +19,47 @@ function extractTitleAndYear(fileName) {
   return { title: name.trim(), year: year };
 }
 
-// TMDB Search with Proxy & Cache
 async function searchTMDB(title, year) {
-  let cacheKeyTitle = `${title}_${year || ""}`;
-  if (tmdbCache[cacheKeyTitle]) {
-    return tmdbCache[cacheKeyTitle];
-  }
+  const cacheKey = `${title}_${year}`;
+  if (cache[cacheKey]) return cache[cacheKey];
 
-  let url = `${proxy_api}?type=movie&query=${encodeURIComponent(title)}`;
-  if (year) url += `&year=${year}`;
+  let query = encodeURIComponent(title);
+  let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
+  if (year) movieUrl += `&year=${year}`;
 
-  let res = await fetch(url);
+  let res = await fetch(movieUrl);
   let data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    tmdbCache[cacheKeyTitle] = { poster: data.results[0].poster_path, title: data.results[0].title };
-    localStorage.setItem(cacheKey, JSON.stringify(tmdbCache));
-    return tmdbCache[cacheKeyTitle];
+    const result = { poster: data.results[0].poster_path, title: data.results[0].title };
+    cache[cacheKey] = result;
+    return result;
   }
 
-  // Try TV
-  url = `${proxy_api}?type=tv&query=${encodeURIComponent(title)}`;
-  res = await fetch(url);
+  let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
+  res = await fetch(tvUrl);
   data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    tmdbCache[cacheKeyTitle] = { poster: data.results[0].poster_path, title: data.results[0].name };
-    localStorage.setItem(cacheKey, JSON.stringify(tmdbCache));
-    return tmdbCache[cacheKeyTitle];
+    const result = { poster: data.results[0].poster_path, title: data.results[0].name };
+    cache[cacheKey] = result;
+    return result;
   }
 
-  // Try Shorter Query
   if (title.split(" ").length > 3) {
     let shortTitle = title.split(" ").slice(0, 3).join(" ");
     return await searchTMDB(shortTitle, null);
   }
 
-  tmdbCache[cacheKeyTitle] = null;
-  localStorage.setItem(cacheKey, JSON.stringify(tmdbCache));
+  cache[cacheKey] = null;
   return null;
 }
 
-// Create Movie Card
-function createMovieCard(poster, title, isRecent) {
+function createMovieCard(poster, title, isNew) {
   const card = document.createElement("div");
   card.className = "movie";
 
   const img = document.createElement("img");
-  img.loading = "lazy";
   img.src = poster;
   img.alt = title;
 
@@ -76,7 +67,7 @@ function createMovieCard(poster, title, isRecent) {
   caption.className = "movie-title";
   caption.textContent = title;
 
-  if (isRecent) {
+  if (isNew) {
     const badge = document.createElement("span");
     badge.className = "badge";
     badge.textContent = "New";
@@ -88,10 +79,10 @@ function createMovieCard(poster, title, isRecent) {
   return card;
 }
 
-// Load Page
 async function loadPage(page) {
   const container = document.getElementById("movies");
   container.innerHTML = "";
+
   const start = (page - 1) * itemsPerPage;
   const end = start + itemsPerPage;
   const currentItems = allFiles.slice(start, end);
@@ -107,8 +98,8 @@ async function loadPage(page) {
       finalTitle = tmdbResult.title;
     }
 
-    const isRecent = index < 8 && page === 1;
-    const card = createMovieCard(poster, finalTitle, isRecent);
+    const isNew = index < 8; // Top 8 items will get "New" badge
+    const card = createMovieCard(poster, finalTitle, isNew);
     container.appendChild(card);
   });
 
@@ -116,7 +107,6 @@ async function loadPage(page) {
   updatePaginationControls();
 }
 
-// Pagination Controls
 function updatePaginationControls() {
   document.getElementById("pagination").innerHTML = `
     <button onclick="prevPage()" ${currentPage === 1 ? "disabled" : ""}>Previous</button>
@@ -139,20 +129,15 @@ function nextPage() {
   }
 }
 
-// Fetch Files with Last Modified Sort
 async function fetchFiles() {
-  const res = await fetch(drive_api);
+  const res = await fetch(drive_api + "?t=" + new Date().getTime()); // Prevent browser cache
   const files = await res.json();
-
-  // Sort by Modified Time (Newest First)
-  files.sort((a, b) => new Date(b.modifiedTime) - new Date(a.modifiedTime));
-
   allFiles = files;
   currentPage = 1;
   loadPage(currentPage);
 }
 
-fetchFiles();
+// Auto Refresh Every 30 Seconds
+setInterval(fetchFiles, 30000);
 
-// Auto Refresh every 30 seconds
-setInterval(fetchFiles, 30 * 1000);
+fetchFiles();
