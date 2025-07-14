@@ -7,9 +7,6 @@ let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
 
-// Cache object for TMDB results
-const tmdbCache = new Map();
-
 // Title Cleaner + Year Extractor
 function extractTitleAndYear(fileName) {
   let name = fileName.replace(/\.[^/.]+$/, "");
@@ -22,45 +19,35 @@ function extractTitleAndYear(fileName) {
   return { title: name.trim(), year: year };
 }
 
-// TMDB Search with cache
+// TMDB Search Logic with Fallback
 async function searchTMDB(title, year) {
-  const cacheKey = `${title.toLowerCase()}_${year || ""}`;
-  if (tmdbCache.has(cacheKey)) {
-    return tmdbCache.get(cacheKey);
-  }
-
   let query = encodeURIComponent(title);
   let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
   if (year) movieUrl += `&year=${year}`;
 
-  try {
-    let res = await fetch(movieUrl);
-    let data = await res.json();
+  let res = await fetch(movieUrl);
+  let data = await res.json();
 
-    if (data.results && data.results.length > 0) {
-      const result = { poster: data.results[0].poster_path, title: data.results[0].title };
-      tmdbCache.set(cacheKey, result);
-      return result;
-    }
-
-    // Try TV shows if no movie found
-    let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
-    res = await fetch(tvUrl);
-    data = await res.json();
-
-    if (data.results && data.results.length > 0) {
-      const result = { poster: data.results[0].poster_path, title: data.results[0].name };
-      tmdbCache.set(cacheKey, result);
-      return result;
-    }
-
-    // No results
-    tmdbCache.set(cacheKey, null);
-    return null;
-  } catch (error) {
-    console.error("TMDB fetch error:", error);
-    return null;
+  if (data.results && data.results.length > 0) {
+    return { poster: data.results[0].poster_path, title: data.results[0].title };
   }
+
+  // Try TV
+  let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
+  res = await fetch(tvUrl);
+  data = await res.json();
+
+  if (data.results && data.results.length > 0) {
+    return { poster: data.results[0].poster_path, title: data.results[0].name };
+  }
+
+  // Fallback: Try shorter query
+  if (title.split(" ").length > 3) {
+    let shortTitle = title.split(" ").slice(0, 3).join(" ");
+    return await searchTMDB(shortTitle, null);
+  }
+
+  return null;
 }
 
 // Create Movie Card
@@ -78,7 +65,7 @@ function createMovieCard(poster, title) {
   return card;
 }
 
-// Load page and show posters
+// Load Page
 async function loadPage(page) {
   const container = document.getElementById("movies");
   container.innerHTML = "";
@@ -88,7 +75,7 @@ async function loadPage(page) {
 
   const promises = currentItems.map(async (file) => {
     const { title, year } = extractTitleAndYear(file.name);
-    let poster = file.url; // fallback to drive thumbnail
+    let poster = file.url;
     let finalTitle = file.name;
 
     const tmdbResult = await searchTMDB(title, year);
@@ -105,7 +92,7 @@ async function loadPage(page) {
   updatePaginationControls();
 }
 
-// Pagination controls
+// Pagination Controls
 function updatePaginationControls() {
   document.getElementById("pagination").innerHTML = `
     <button onclick="prevPage()" ${currentPage === 1 ? "disabled" : ""}>Previous</button>
@@ -128,17 +115,12 @@ function nextPage() {
   }
 }
 
-// Fetch files from Google Drive API
 async function fetchFiles() {
-  try {
-    const res = await fetch(drive_api);
-    const files = await res.json();
-    allFiles = files;
-    currentPage = 1;
-    loadPage(currentPage);
-  } catch (error) {
-    console.error("Drive API fetch error:", error);
-  }
+  const res = await fetch(drive_api);
+  const files = await res.json();
+  allFiles = files;
+  currentPage = 1;
+  loadPage(currentPage);
 }
 
 fetchFiles();
