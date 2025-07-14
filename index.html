@@ -1,0 +1,112 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RajFlix Thunder Clone</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #111; color: #fff; }
+    .card { background: #222; border: none; }
+    .card img { border-radius: 10px; }
+  </style>
+</head>
+<body>
+<div class="container mt-4">
+  <h2 class="mb-4 text-center">RajFlix Thunder Style Clone</h2>
+  <div id="movieList" class="row"></div>
+</div>
+
+<script>
+const client_key = "275d762c21f3a57f54f0001eefef97ab";
+const api_url = "https://api.themoviedb.org/3";
+const img_path = "https://image.tmdb.org/t/p/w1280";
+const proxyBase = "https://rajflix-proxy.workers.dev/?url="; 
+const driveIndexUrl = "https://rajflix.movielovers.workers.dev/0:/Movies/";
+const proxyUrl = proxyBase + encodeURIComponent(driveIndexUrl);
+
+async function fetchDriveFiles() {
+  const res = await fetch(proxyUrl);
+  const html = await res.text();
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const links = [...doc.querySelectorAll('a')];
+
+  const videoLinks = links.filter(link => link.href.endsWith('.mp4') || link.href.endsWith('.mkv'));
+
+  videoLinks.forEach(link => {
+    const fileName = link.textContent.trim();
+    const { title, year } = extractTitleAndYear(fileName);
+    const videoUrl = driveIndexUrl + encodeURIComponent(link.getAttribute('href'));
+    searchTMDB(title, year, videoUrl);
+  });
+}
+
+function extractTitleAndYear(name) {
+  const yearMatch = name.match(/(19|20)\d{2}/);
+  const year = yearMatch ? yearMatch[0] : null;
+
+  const title = name.replace(/\./g, ' ')
+                    .replace(/(1080p|720p|480p|BluRay|WEBRip|HDRip|WEB-DL|x264|x265|HEVC|mp4|mkv)/gi, '')
+                    .replace(/(19|20)\d{2}/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+
+  return { title, year };
+}
+
+function searchTMDB(title, year, url) {
+  let tmdbUrl = `${api_url}/search/movie?api_key=${client_key}&query=${encodeURIComponent(title)}`;
+  if (year) { tmdbUrl += `&year=${year}`; }
+
+  fetch(tmdbUrl)
+    .then(res => res.json())
+    .then(data => {
+      if (data.results && data.results.length > 0) {
+        const movie = data.results[0];
+        showMovieCard(movie, url);
+      } else {
+        searchTV(title, url);
+      }
+    });
+}
+
+function searchTV(title, url) {
+  const tmdbUrl = `${api_url}/search/tv?api_key=${client_key}&query=${encodeURIComponent(title)}`;
+
+  fetch(tmdbUrl)
+    .then(res => res.json())
+    .then(data => {
+      if (data.results && data.results.length > 0) {
+        const tv = data.results[0];
+        showMovieCard(tv, url);
+      } else {
+        showMovieCard({ title: title, poster_path: null, release_date: '' }, url);
+      }
+    });
+}
+
+function showMovieCard(movie, videoUrl) {
+  const container = document.getElementById('movieList');
+  const poster = movie.poster_path ? `${img_path}${movie.poster_path}` : 'https://via.placeholder.com/500x750?text=No+Image';
+
+  container.innerHTML += `
+    <div class="col-md-3 mb-4">
+      <div class="card h-100">
+        <img src="${poster}" class="card-img-top" alt="${movie.title}">
+        <div class="card-body">
+          <h5 class="card-title">${movie.title}</h5>
+          <p class="card-text" style="font-size:12px">${movie.release_date || 'Unknown Year'}</p>
+          <a href="${videoUrl}" class="btn btn-primary btn-block" target="_blank">Watch Now</a>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+fetchDriveFiles();
+</script>
+
+</body>
+</html>
