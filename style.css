@@ -21,7 +21,6 @@ h1 {
   width: 200px;
   overflow: hidden;
   box-shadow: 0 0 10px rgba(0,0,0,0.5);
-  position: relative;
 }
 .movie img {
   width: 100%;
@@ -29,16 +28,6 @@ h1 {
 .movie-title {
   padding: 10px;
   font-size: 14px;
-}
-.badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background: #ff4444;
-  color: white;
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 5px;
 }
 #pagination button {
   padding: 8px 15px;
