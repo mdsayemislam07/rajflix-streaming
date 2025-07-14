@@ -1,0 +1,31 @@
+body {
+  background: #0d0d0d;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  margin: 0;
+  padding: 20px;
+}
+h1 {
+  margin-bottom: 20px;
+}
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.movie {
+  background: #1a1a1a;
+  border-radius: 10px;
+  margin: 10px;
+  width: 200px;
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+.movie img {
+  width: 100%;
+}
+.movie-title {
+  padding: 10px;
+  font-size: 14px;
+}
