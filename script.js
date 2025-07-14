@@ -139,10 +139,14 @@ function nextPage() {
   }
 }
 
-// Fetch Files
+// Fetch Files with Last Modified Sort
 async function fetchFiles() {
   const res = await fetch(drive_api);
   const files = await res.json();
+
+  // Sort by Modified Time (Newest First)
+  files.sort((a, b) => new Date(b.modifiedTime) - new Date(a.modifiedTime));
+
   allFiles = files;
   currentPage = 1;
   loadPage(currentPage);
@@ -150,5 +154,5 @@ async function fetchFiles() {
 
 fetchFiles();
 
-// Auto Refresh after 30 seconds
+// Auto Refresh every 30 seconds
 setInterval(fetchFiles, 30 * 1000);
