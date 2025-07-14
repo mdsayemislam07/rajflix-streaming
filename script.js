@@ -7,7 +7,7 @@ let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
 
-// Title Cleaner + Year Extractor
+// Cleaner + Year Extractor
 function extractTitleAndYear(fileName) {
   let name = fileName.replace(/\.[^/.]+$/, "");
   name = name.replace(/[\._]/g, " ");
@@ -19,7 +19,7 @@ function extractTitleAndYear(fileName) {
   return { title: name.trim(), year: year };
 }
 
-// TMDB Search Logic with Fallback
+// TMDB Search Logic with Exact Match Priority
 async function searchTMDB(title, year) {
   let query = encodeURIComponent(title);
   let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
@@ -29,7 +29,11 @@ async function searchTMDB(title, year) {
   let data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    return { poster: data.results[0].poster_path, title: data.results[0].title };
+    // Check for exact match
+    const exact = data.results.find(m => m.title.toLowerCase() === title.toLowerCase());
+    if (exact) {
+      return { poster: exact.poster_path, title: exact.title };
+    }
   }
 
   // Try TV
@@ -38,28 +42,36 @@ async function searchTMDB(title, year) {
   data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    return { poster: data.results[0].poster_path, title: data.results[0].name };
+    const exact = data.results.find(m => m.name.toLowerCase() === title.toLowerCase());
+    if (exact) {
+      return { poster: exact.poster_path, title: exact.name };
+    }
   }
 
-  // Fallback: Try shorter query
-  if (title.split(" ").length > 3) {
-    let shortTitle = title.split(" ").slice(0, 3).join(" ");
-    return await searchTMDB(shortTitle, null);
-  }
-
-  return null;
+  return null; // No match if exact not found
 }
 
-// Create Movie Card
-function createMovieCard(poster, title) {
+// Create Movie Card with Lazy Loading & Badge
+function createMovieCard(poster, title, isNew) {
   const card = document.createElement("div");
   card.className = "movie";
+
   const img = document.createElement("img");
-  img.src = poster;
+  img.dataset.src = poster; // Lazy loading via dataset
   img.alt = title;
+  img.loading = "lazy"; // Native browser lazy loading
+
   const caption = document.createElement("div");
   caption.className = "movie-title";
   caption.textContent = title;
+
+  if (isNew) {
+    const badge = document.createElement("div");
+    badge.className = "badge";
+    badge.textContent = "New";
+    card.appendChild(badge);
+  }
+
   card.appendChild(img);
   card.appendChild(caption);
   return card;
@@ -73,6 +85,9 @@ async function loadPage(page) {
   const end = start + itemsPerPage;
   const currentItems = allFiles.slice(start, end);
 
+  const now = Date.now();
+  const dayLimit = 1000 * 60 * 60 * 24 * 3; // 3 days for "New" badge
+
   const promises = currentItems.map(async (file) => {
     const { title, year } = extractTitleAndYear(file.name);
     let poster = file.url;
@@ -84,11 +99,14 @@ async function loadPage(page) {
       finalTitle = tmdbResult.title;
     }
 
-    const card = createMovieCard(poster, finalTitle);
+    const isNew = (now - file.modified) < dayLimit;
+
+    const card = createMovieCard(poster, finalTitle, isNew);
     container.appendChild(card);
   });
 
   await Promise.all(promises);
+  lazyLoadImages();
   updatePaginationControls();
 }
 
@@ -121,6 +139,15 @@ async function fetchFiles() {
   allFiles = files;
   currentPage = 1;
   loadPage(currentPage);
+}
+
+// Lazy Loading Handler
+function lazyLoadImages() {
+  const images = document.querySelectorAll('img[data-src]');
+  images.forEach(img => {
+    img.src = img.dataset.src;
+    img.removeAttribute('data-src');
+  });
 }
 
 fetchFiles();
