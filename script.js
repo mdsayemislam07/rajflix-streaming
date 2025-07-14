@@ -150,5 +150,5 @@ async function fetchFiles() {
 
 fetchFiles();
 
-// Auto Refresh after 10 minutes
-setInterval(fetchFiles, 10 * 60 * 1000);
+// Auto Refresh after 30 seconds
+setInterval(fetchFiles, 30 * 1000);
