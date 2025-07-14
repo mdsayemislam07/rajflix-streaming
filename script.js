@@ -6,9 +6,7 @@ const drive_api = "https://script.google.com/macros/s/AKfycbzh3fRccgpIXlskFuBHcE
 let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
-
-// Persistent Poster Cache
-let posterCache = JSON.parse(localStorage.getItem("posterCache") || "{}");
+const cache = JSON.parse(localStorage.getItem("tmdbCache") || "{}");
 
 function extractTitleAndYear(fileName) {
   let name = fileName.replace(/\.[^/.]+$/, "");
@@ -23,7 +21,7 @@ function extractTitleAndYear(fileName) {
 
 async function searchTMDB(title, year) {
   const cacheKey = `${title}_${year}`;
-  if (posterCache[cacheKey]) return posterCache[cacheKey];
+  if (cache[cacheKey]) return cache[cacheKey];
 
   let query = encodeURIComponent(title);
   let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
@@ -33,9 +31,9 @@ async function searchTMDB(title, year) {
   let data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    const result = { poster: img_path + data.results[0].poster_path, title: data.results[0].title };
-    posterCache[cacheKey] = result;
-    localStorage.setItem("posterCache", JSON.stringify(posterCache));
+    const result = { poster: data.results[0].poster_path, title: data.results[0].title };
+    cache[cacheKey] = result;
+    localStorage.setItem("tmdbCache", JSON.stringify(cache));
     return result;
   }
 
@@ -44,16 +42,20 @@ async function searchTMDB(title, year) {
   data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    const result = { poster: img_path + data.results[0].poster_path, title: data.results[0].name };
-    posterCache[cacheKey] = result;
-    localStorage.setItem("posterCache", JSON.stringify(posterCache));
+    const result = { poster: data.results[0].poster_path, title: data.results[0].name };
+    cache[cacheKey] = result;
+    localStorage.setItem("tmdbCache", JSON.stringify(cache));
     return result;
   }
 
-  const fallback = { poster: null, title: title };
-  posterCache[cacheKey] = fallback;
-  localStorage.setItem("posterCache", JSON.stringify(posterCache));
-  return fallback;
+  if (title.split(" ").length > 3) {
+    let shortTitle = title.split(" ").slice(0, 3).join(" ");
+    return await searchTMDB(shortTitle, null);
+  }
+
+  cache[cacheKey] = null;
+  localStorage.setItem("tmdbCache", JSON.stringify(cache));
+  return null;
 }
 
 function createMovieCard(poster, title, isNew) {
@@ -90,23 +92,16 @@ async function loadPage(page) {
 
   const promises = currentItems.map(async (file, index) => {
     const { title, year } = extractTitleAndYear(file.name);
-    const cacheKey = `${title}_${year}`;
-
     let poster = file.url;
     let finalTitle = file.name;
 
-    if (posterCache[cacheKey] && posterCache[cacheKey].poster) {
-      poster = posterCache[cacheKey].poster;
-      finalTitle = posterCache[cacheKey].title;
-    } else {
-      const tmdbResult = await searchTMDB(title, year);
-      if (tmdbResult && tmdbResult.poster) {
-        poster = tmdbResult.poster;
-        finalTitle = tmdbResult.title;
-      }
+    const tmdbResult = await searchTMDB(title, year);
+    if (tmdbResult && tmdbResult.poster) {
+      poster = img_path + tmdbResult.poster;
+      finalTitle = tmdbResult.title;
     }
 
-    const isNew = index < 8; // Top 8 are "New"
+    const isNew = index < 8; // Top 8 items will get "New" badge
     const card = createMovieCard(poster, finalTitle, isNew);
     container.appendChild(card);
   });
@@ -138,7 +133,7 @@ function nextPage() {
 }
 
 async function fetchFiles() {
-  const res = await fetch(drive_api + "?t=" + new Date().getTime());
+  const res = await fetch(drive_api + "?t=" + new Date().getTime()); // Prevent browser cache
   const files = await res.json();
   allFiles = files;
   currentPage = 1;
