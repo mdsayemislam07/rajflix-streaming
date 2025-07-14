@@ -7,8 +7,12 @@ let allFiles = [];
 let currentPage = 1;  
 const itemsPerPage = 20;
 
-// Cache Map for TMDB results  
-const tmdbCache = new Map();  
+// TMDB Cache with localStorage
+const tmdbCache = JSON.parse(localStorage.getItem("tmdbCache") || "{}");
+
+function saveCache() {
+  localStorage.setItem("tmdbCache", JSON.stringify(tmdbCache));
+}
   
 // Title Cleaner + Year Extractor  
 function extractTitleAndYear(fileName) {  
@@ -25,8 +29,8 @@ function extractTitleAndYear(fileName) {
 // TMDB Search Logic with Cache and Fallback  
 async function searchTMDB(title, year) {  
   const cacheKey = `${title.toLowerCase()}|${year || ''}`;  
-  if (tmdbCache.has(cacheKey)) {  
-    return tmdbCache.get(cacheKey);  
+  if (tmdbCache[cacheKey]) {  
+    return tmdbCache[cacheKey];  
   }  
   
   let query = encodeURIComponent(title);  
@@ -38,7 +42,8 @@ async function searchTMDB(title, year) {
   
   if (data.results && data.results.length > 0) {  
     const result = { poster: data.results[0].poster_path, title: data.results[0].title };  
-    tmdbCache.set(cacheKey, result);  
+    tmdbCache[cacheKey] = result;  
+    saveCache();  
     return result;  
   }  
   
@@ -49,7 +54,8 @@ async function searchTMDB(title, year) {
   
   if (data.results && data.results.length > 0) {  
     const result = { poster: data.results[0].poster_path, title: data.results[0].name };  
-    tmdbCache.set(cacheKey, result);  
+    tmdbCache[cacheKey] = result;  
+    saveCache();  
     return result;  
   }  
   
@@ -57,11 +63,13 @@ async function searchTMDB(title, year) {
   if (title.split(" ").length > 3) {  
     let shortTitle = title.split(" ").slice(0, 3).join(" ");  
     const result = await searchTMDB(shortTitle, null);  
-    tmdbCache.set(cacheKey, result);  
+    tmdbCache[cacheKey] = result;  
+    saveCache();  
     return result;  
   }  
   
-  tmdbCache.set(cacheKey, null);  
+  tmdbCache[cacheKey] = null;  
+  saveCache();  
   return null;  
 }  
   
