@@ -7,7 +7,10 @@ let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
 
-// ফাইল নাম থেকে title ও year আলাদা করা
+// Cache object for TMDB results
+const tmdbCache = new Map();
+
+// Title Cleaner + Year Extractor
 function extractTitleAndYear(fileName) {
   let name = fileName.replace(/\.[^/.]+$/, "");
   name = name.replace(/[\._]/g, " ");
@@ -19,105 +22,90 @@ function extractTitleAndYear(fileName) {
   return { title: name.trim(), year: year };
 }
 
-// TMDB থেকে পোস্টার ও তথ্য নেয়া (Exact match এবং fallback সহ)
+// TMDB Search with cache
 async function searchTMDB(title, year) {
-  function cleanStr(str) {
-    return str.toLowerCase().replace(/[\s:\-,'".]/g, "");
+  const cacheKey = `${title.toLowerCase()}_${year || ""}`;
+  if (tmdbCache.has(cacheKey)) {
+    return tmdbCache.get(cacheKey);
   }
-  
+
   let query = encodeURIComponent(title);
   let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
   if (year) movieUrl += `&year=${year}`;
-  
-  let res = await fetch(movieUrl);
-  let data = await res.json();
-  
-  if (data.results && data.results.length > 0) {
-    let exact = data.results.find(m => cleanStr(m.title) === cleanStr(title));
-    if (exact) {
-      return { poster: exact.poster_path, title: exact.title };
-    } else {
-      return { poster: data.results[0].poster_path, title: data.results[0].title };
+
+  try {
+    let res = await fetch(movieUrl);
+    let data = await res.json();
+
+    if (data.results && data.results.length > 0) {
+      const result = { poster: data.results[0].poster_path, title: data.results[0].title };
+      tmdbCache.set(cacheKey, result);
+      return result;
     }
-  }
-  
-  // TV শো সার্চ
-  let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
-  res = await fetch(tvUrl);
-  data = await res.json();
-  
-  if (data.results && data.results.length > 0) {
-    let exact = data.results.find(m => cleanStr(m.name) === cleanStr(title));
-    if (exact) {
-      return { poster: exact.poster_path, title: exact.name };
-    } else {
-      return { poster: data.results[0].poster_path, title: data.results[0].name };
+
+    // Try TV shows if no movie found
+    let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
+    res = await fetch(tvUrl);
+    data = await res.json();
+
+    if (data.results && data.results.length > 0) {
+      const result = { poster: data.results[0].poster_path, title: data.results[0].name };
+      tmdbCache.set(cacheKey, result);
+      return result;
     }
+
+    // No results
+    tmdbCache.set(cacheKey, null);
+    return null;
+  } catch (error) {
+    console.error("TMDB fetch error:", error);
+    return null;
   }
-  
-  return null;
 }
 
-// কার্ড তৈরি: Lazy loading + Recently Added Badge
-function createMovieCard(poster, title, isNew) {
+// Create Movie Card
+function createMovieCard(poster, title) {
   const card = document.createElement("div");
   card.className = "movie";
-  
   const img = document.createElement("img");
-  img.dataset.src = poster;
+  img.src = poster;
   img.alt = title;
-  img.loading = "lazy";
-  
   const caption = document.createElement("div");
   caption.className = "movie-title";
   caption.textContent = title;
-  
-  if (isNew) {
-    const badge = document.createElement("div");
-    badge.className = "badge";
-    badge.textContent = "New";
-    card.appendChild(badge);
-  }
-  
   card.appendChild(img);
   card.appendChild(caption);
-  
   return card;
 }
 
-// পেজ লোড
+// Load page and show posters
 async function loadPage(page) {
   const container = document.getElementById("movies");
   container.innerHTML = "";
   const start = (page - 1) * itemsPerPage;
   const end = start + itemsPerPage;
   const currentItems = allFiles.slice(start, end);
-  
-  const now = Date.now();
-  const newThreshold = 1000 * 60 * 60 * 24 * 3;
-  
+
   const promises = currentItems.map(async (file) => {
     const { title, year } = extractTitleAndYear(file.name);
-    let poster = file.url;  
+    let poster = file.url; // fallback to drive thumbnail
     let finalTitle = file.name;
-    
+
     const tmdbResult = await searchTMDB(title, year);
     if (tmdbResult && tmdbResult.poster) {
       poster = img_path + tmdbResult.poster;
       finalTitle = tmdbResult.title;
     }
-    
-    const isNew = (now - file.modified) < newThreshold;
-    const card = createMovieCard(poster, finalTitle, isNew);
+
+    const card = createMovieCard(poster, finalTitle);
     container.appendChild(card);
   });
-  
+
   await Promise.all(promises);
-  lazyLoadImages();
   updatePaginationControls();
 }
 
-// পেজিনেশন কন্ট্রোল আপডেট
+// Pagination controls
 function updatePaginationControls() {
   document.getElementById("pagination").innerHTML = `
     <button onclick="prevPage()" ${currentPage === 1 ? "disabled" : ""}>Previous</button>
@@ -140,39 +128,16 @@ function nextPage() {
   }
 }
 
-// lazy load ইমেজ লোড করা
-function lazyLoadImages() {
-  const images = document.querySelectorAll('img[data-src]');
-  images.forEach(img => {
-    img.src = img.dataset.src;
-    img.removeAttribute('data-src');
-  });
-}
-
-// ফাইলগুলো fetch + ক্যাশিং সহ
+// Fetch files from Google Drive API
 async function fetchFiles() {
-  let cached = localStorage.getItem("rajflix_files");
-  if (cached) {
-    allFiles = JSON.parse(cached);
-    currentPage = 1;
-    loadPage(currentPage);
-  }
-  
   try {
     const res = await fetch(drive_api);
     const files = await res.json();
-    localStorage.setItem("rajflix_files", JSON.stringify(files));
-    
-    if (!cached || JSON.stringify(files) !== cached) {
-      allFiles = files;
-      currentPage = 1;
-      loadPage(currentPage);
-    }
-  } catch (err) {
-    console.error("Error fetching files:", err);
-    if (!cached) {
-      document.getElementById("movies").textContent = "Failed to load files.";
-    }
+    allFiles = files;
+    currentPage = 1;
+    loadPage(currentPage);
+  } catch (error) {
+    console.error("Drive API fetch error:", error);
   }
 }
 
