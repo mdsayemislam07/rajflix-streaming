@@ -3,6 +3,10 @@ const api_url = "https://api.themoviedb.org/3";
 const img_path = "https://image.tmdb.org/t/p/w500";
 const drive_api = "https://script.google.com/macros/s/AKfycbxK21Hi11PyGJ96T3_YhGWBOQvkSTtAnWvQckUXofBemfLW_AFVM1w3fqAl4RceCBWB/exec";
 
+let allFiles = [];
+let currentPage = 1;
+const itemsPerPage = 20;
+
 // Cleaner + Year Extractor
 function extractTitleAndYear(fileName) {
   let name = fileName.replace(/\.[^/.]+$/, ""); // Remove extension
@@ -11,7 +15,6 @@ function extractTitleAndYear(fileName) {
   let yearMatch = name.match(/\b(19|20)\d{2}\b/);
   let year = yearMatch ? yearMatch[0] : null;
 
-  // Remove year and brackets if present
   name = name.replace(/[\(\)\[\]]/g, "");        // Remove brackets
   name = name.replace(/\b(19|20)\d{2}\b/, "");   // Remove year
   name = name.replace(/\b(480p|720p|1080p|2160p|BluRay|WEBRip|HDRip|x264|x265|HEVC|AAC|MP4|MKV|Dual Audio|Hindi|Bangla|English|BDRip|BRRip|HDCAM|WEB-DL)\b/gi, "");
@@ -40,18 +43,20 @@ function createMovieCard(poster, title) {
   return card;
 }
 
-async function fetchMovies() {
+async function loadPage(page) {
   const container = document.getElementById("movies");
   container.innerHTML = "";
 
-  const res = await fetch(drive_api);
-  const files = await res.json();
+  const start = (page - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
 
-  const promises = files.map(async (file) => {
+  const currentItems = allFiles.slice(start, end);
+
+  const promises = currentItems.map(async (file) => {
     const { title, year } = extractTitleAndYear(file.name);
     const query = encodeURIComponent(title);
 
-    let poster = file.url; // fallback to drive image
+    let poster = file.url;
     let finalTitle = file.name;
 
     let tmdbUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
@@ -69,7 +74,7 @@ async function fetchMovies() {
       }
       finalTitle = movie.title;
     } else {
-      // Try TV Show if movie fails
+      // Try TV
       tmdbUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
       tmdbRes = await fetch(tmdbUrl);
       tmdbData = await tmdbRes.json();
@@ -88,6 +93,37 @@ async function fetchMovies() {
   });
 
   await Promise.all(promises);
+  updatePaginationControls();
 }
 
-fetchMovies();
+function updatePaginationControls() {
+  document.getElementById("pagination").innerHTML = `
+    <button onclick="prevPage()" ${currentPage === 1 ? "disabled" : ""}>Previous</button>
+    <span>Page ${currentPage} of ${Math.ceil(allFiles.length / itemsPerPage)}</span>
+    <button onclick="nextPage()" ${currentPage * itemsPerPage >= allFiles.length ? "disabled" : ""}>Next</button>
+  `;
+}
+
+function prevPage() {
+  if (currentPage > 1) {
+    currentPage--;
+    loadPage(currentPage);
+  }
+}
+
+function nextPage() {
+  if (currentPage * itemsPerPage < allFiles.length) {
+    currentPage++;
+    loadPage(currentPage);
+  }
+}
+
+async function fetchFiles() {
+  const res = await fetch(drive_api);
+  const files = await res.json();
+  allFiles = files;
+  currentPage = 1;
+  loadPage(currentPage);
+}
+
+fetchFiles();
