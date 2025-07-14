@@ -6,7 +6,7 @@ const drive_api = "https://script.google.com/macros/s/AKfycbzh3fRccgpIXlskFuBHcE
 let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
-const cache = {};
+const cache = JSON.parse(localStorage.getItem("tmdbCache") || "{}");
 
 function extractTitleAndYear(fileName) {
   let name = fileName.replace(/\.[^/.]+$/, "");
@@ -33,6 +33,7 @@ async function searchTMDB(title, year) {
   if (data.results && data.results.length > 0) {
     const result = { poster: data.results[0].poster_path, title: data.results[0].title };
     cache[cacheKey] = result;
+    localStorage.setItem("tmdbCache", JSON.stringify(cache));
     return result;
   }
 
@@ -43,6 +44,7 @@ async function searchTMDB(title, year) {
   if (data.results && data.results.length > 0) {
     const result = { poster: data.results[0].poster_path, title: data.results[0].name };
     cache[cacheKey] = result;
+    localStorage.setItem("tmdbCache", JSON.stringify(cache));
     return result;
   }
 
@@ -52,6 +54,7 @@ async function searchTMDB(title, year) {
   }
 
   cache[cacheKey] = null;
+  localStorage.setItem("tmdbCache", JSON.stringify(cache));
   return null;
 }
 
