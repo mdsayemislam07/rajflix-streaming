@@ -22,10 +22,12 @@
 const client_key = "275d762c21f3a57f54f0001eefef97ab";
 const api_url = "https://api.themoviedb.org/3";
 const img_path = "https://image.tmdb.org/t/p/w1280";
-const proxyBase = "https://rajflix-proxy.workers.dev/?url="; 
-const driveIndexUrl = "https://rajflix.movielovers.workers.dev/0:/Movies/";
+const proxyBase = "https://rajflix.movielovers.workers.dev/?url=";  
+const driveIndexUrl = "https://rajflix.movielovers.workers.dev/0:/GDToT/";  
 const proxyUrl = proxyBase + encodeURIComponent(driveIndexUrl);
 
+
+  
 async function fetchDriveFiles() {
   const res = await fetch(proxyUrl);
   const html = await res.text();
