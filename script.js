@@ -19,8 +19,10 @@ function extractTitleAndYear(fileName) {
   return { title: name.trim(), year: year };
 }
 
-// TMDB Search Logic with Exact Match Priority
+// TMDB Search Logic: Smart Exact + Fallback
 async function searchTMDB(title, year) {
+  let clean = str => str.toLowerCase().replace(/[\s:\-,'".]/g,"");
+
   let query = encodeURIComponent(title);
   let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
   if (year) movieUrl += `&year=${year}`;
@@ -29,37 +31,40 @@ async function searchTMDB(title, year) {
   let data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    // Check for exact match
-    const exact = data.results.find(m => m.title.toLowerCase() === title.toLowerCase());
+    const exact = data.results.find(m => clean(m.title) === clean(title));
     if (exact) {
       return { poster: exact.poster_path, title: exact.title };
+    } else {
+      return { poster: data.results[0].poster_path, title: data.results[0].title };
     }
   }
 
-  // Try TV
+  // Try TV shows
   let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
   res = await fetch(tvUrl);
   data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    const exact = data.results.find(m => m.name.toLowerCase() === title.toLowerCase());
+    const exact = data.results.find(m => clean(m.name) === clean(title));
     if (exact) {
       return { poster: exact.poster_path, title: exact.name };
+    } else {
+      return { poster: data.results[0].poster_path, title: data.results[0].name };
     }
   }
 
-  return null; // No match if exact not found
+  return null; // Nothing found
 }
 
-// Create Movie Card with Lazy Loading & Badge
+// Create Movie Card with Lazy Load + Badge
 function createMovieCard(poster, title, isNew) {
   const card = document.createElement("div");
   card.className = "movie";
 
   const img = document.createElement("img");
-  img.dataset.src = poster; // Lazy loading via dataset
+  img.dataset.src = poster; // Lazy Load
   img.alt = title;
-  img.loading = "lazy"; // Native browser lazy loading
+  img.loading = "lazy";
 
   const caption = document.createElement("div");
   caption.className = "movie-title";
@@ -141,7 +146,7 @@ async function fetchFiles() {
   loadPage(currentPage);
 }
 
-// Lazy Loading Handler
+// Lazy Loading Images
 function lazyLoadImages() {
   const images = document.querySelectorAll('img[data-src]');
   images.forEach(img => {
