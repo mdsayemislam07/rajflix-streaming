@@ -7,7 +7,7 @@ let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
 
-// Cleaner + Year Extractor
+// Title Cleaner + Year Extractor
 function extractTitleAndYear(fileName) {
   let name = fileName.replace(/\.[^/.]+$/, "");
   name = name.replace(/[\._]/g, " ");
@@ -19,10 +19,8 @@ function extractTitleAndYear(fileName) {
   return { title: name.trim(), year: year };
 }
 
-// TMDB Search Logic: Smart Exact + Fallback
+// TMDB Search Logic with Fallback
 async function searchTMDB(title, year) {
-  let clean = str => str.toLowerCase().replace(/[\s:\-,'".]/g,"");
-
   let query = encodeURIComponent(title);
   let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
   if (year) movieUrl += `&year=${year}`;
@@ -31,52 +29,37 @@ async function searchTMDB(title, year) {
   let data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    const exact = data.results.find(m => clean(m.title) === clean(title));
-    if (exact) {
-      return { poster: exact.poster_path, title: exact.title };
-    } else {
-      return { poster: data.results[0].poster_path, title: data.results[0].title };
-    }
+    return { poster: data.results[0].poster_path, title: data.results[0].title };
   }
 
-  // Try TV shows
+  // Try TV
   let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
   res = await fetch(tvUrl);
   data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    const exact = data.results.find(m => clean(m.name) === clean(title));
-    if (exact) {
-      return { poster: exact.poster_path, title: exact.name };
-    } else {
-      return { poster: data.results[0].poster_path, title: data.results[0].name };
-    }
+    return { poster: data.results[0].poster_path, title: data.results[0].name };
   }
 
-  return null; // Nothing found
+  // Fallback: Try shorter query
+  if (title.split(" ").length > 3) {
+    let shortTitle = title.split(" ").slice(0, 3).join(" ");
+    return await searchTMDB(shortTitle, null);
+  }
+
+  return null;
 }
 
-// Create Movie Card with Lazy Load + Badge
-function createMovieCard(poster, title, isNew) {
+// Create Movie Card
+function createMovieCard(poster, title) {
   const card = document.createElement("div");
   card.className = "movie";
-
   const img = document.createElement("img");
-  img.dataset.src = poster; // Lazy Load
+  img.src = poster;
   img.alt = title;
-  img.loading = "lazy";
-
   const caption = document.createElement("div");
   caption.className = "movie-title";
   caption.textContent = title;
-
-  if (isNew) {
-    const badge = document.createElement("div");
-    badge.className = "badge";
-    badge.textContent = "New";
-    card.appendChild(badge);
-  }
-
   card.appendChild(img);
   card.appendChild(caption);
   return card;
@@ -90,9 +73,6 @@ async function loadPage(page) {
   const end = start + itemsPerPage;
   const currentItems = allFiles.slice(start, end);
 
-  const now = Date.now();
-  const dayLimit = 1000 * 60 * 60 * 24 * 3; // 3 days for "New" badge
-
   const promises = currentItems.map(async (file) => {
     const { title, year } = extractTitleAndYear(file.name);
     let poster = file.url;
@@ -104,14 +84,11 @@ async function loadPage(page) {
       finalTitle = tmdbResult.title;
     }
 
-    const isNew = (now - file.modified) < dayLimit;
-
-    const card = createMovieCard(poster, finalTitle, isNew);
+    const card = createMovieCard(poster, finalTitle);
     container.appendChild(card);
   });
 
   await Promise.all(promises);
-  lazyLoadImages();
   updatePaginationControls();
 }
 
@@ -144,15 +121,6 @@ async function fetchFiles() {
   allFiles = files;
   currentPage = 1;
   loadPage(currentPage);
-}
-
-// Lazy Loading Images
-function lazyLoadImages() {
-  const images = document.querySelectorAll('img[data-src]');
-  images.forEach(img => {
-    img.src = img.dataset.src;
-    img.removeAttribute('data-src');
-  });
 }
 
 fetchFiles();
