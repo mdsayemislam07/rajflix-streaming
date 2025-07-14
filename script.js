@@ -7,85 +7,81 @@ let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
 
-// Cleaner + Year Extractor
+// Title Cleaner + Year Extractor
 function extractTitleAndYear(fileName) {
-  let name = fileName.replace(/\.[^/.]+$/, ""); // Remove extension
-  name = name.replace(/[\._]/g, " ");           // . and _ to space
-
+  let name = fileName.replace(/\.[^/.]+$/, "");
+  name = name.replace(/[\._]/g, " ");
   let yearMatch = name.match(/\b(19|20)\d{2}\b/);
   let year = yearMatch ? yearMatch[0] : null;
-
-  name = name.replace(/[\(\)\[\]]/g, "");        // Remove brackets
-  name = name.replace(/\b(19|20)\d{2}\b/, "");   // Remove year
+  name = name.replace(/[\(\)\[\]]/g, "");
+  name = name.replace(/\b(19|20)\d{2}\b/, "");
   name = name.replace(/\b(480p|720p|1080p|2160p|BluRay|WEBRip|HDRip|x264|x265|HEVC|AAC|MP4|MKV|Dual Audio|Hindi|Bangla|English|BDRip|BRRip|HDCAM|WEB-DL)\b/gi, "");
-
-  return {
-    title: name.trim(),
-    year: year
-  };
+  return { title: name.trim(), year: year };
 }
 
+// TMDB Search Logic with Fallback
+async function searchTMDB(title, year) {
+  let query = encodeURIComponent(title);
+  let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
+  if (year) movieUrl += `&year=${year}`;
+
+  let res = await fetch(movieUrl);
+  let data = await res.json();
+
+  if (data.results && data.results.length > 0) {
+    return { poster: data.results[0].poster_path, title: data.results[0].title };
+  }
+
+  // Try TV
+  let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
+  res = await fetch(tvUrl);
+  data = await res.json();
+
+  if (data.results && data.results.length > 0) {
+    return { poster: data.results[0].poster_path, title: data.results[0].name };
+  }
+
+  // Fallback: Try shorter query
+  if (title.split(" ").length > 3) {
+    let shortTitle = title.split(" ").slice(0, 3).join(" ");
+    return await searchTMDB(shortTitle, null);
+  }
+
+  return null;
+}
+
+// Create Movie Card
 function createMovieCard(poster, title) {
   const card = document.createElement("div");
   card.className = "movie";
-
   const img = document.createElement("img");
   img.src = poster;
   img.alt = title;
-
   const caption = document.createElement("div");
   caption.className = "movie-title";
   caption.textContent = title;
-
   card.appendChild(img);
   card.appendChild(caption);
-
   return card;
 }
 
+// Load Page
 async function loadPage(page) {
   const container = document.getElementById("movies");
   container.innerHTML = "";
-
   const start = (page - 1) * itemsPerPage;
   const end = start + itemsPerPage;
-
   const currentItems = allFiles.slice(start, end);
 
   const promises = currentItems.map(async (file) => {
     const { title, year } = extractTitleAndYear(file.name);
-    const query = encodeURIComponent(title);
-
     let poster = file.url;
     let finalTitle = file.name;
 
-    let tmdbUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
-    if (year) {
-      tmdbUrl += `&year=${year}`;
-    }
-
-    let tmdbRes = await fetch(tmdbUrl);
-    let tmdbData = await tmdbRes.json();
-
-    if (tmdbData.results && tmdbData.results.length > 0) {
-      const movie = tmdbData.results[0];
-      if (movie.poster_path) {
-        poster = img_path + movie.poster_path;
-      }
-      finalTitle = movie.title;
-    } else {
-      // Try TV
-      tmdbUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
-      tmdbRes = await fetch(tmdbUrl);
-      tmdbData = await tmdbRes.json();
-
-      if (tmdbData.results && tmdbData.results.length > 0) {
-        const show = tmdbData.results[0];
-        if (show.poster_path) {
-          poster = img_path + show.poster_path;
-        }
-        finalTitle = show.name;
-      }
+    const tmdbResult = await searchTMDB(title, year);
+    if (tmdbResult && tmdbResult.poster) {
+      poster = img_path + tmdbResult.poster;
+      finalTitle = tmdbResult.title;
     }
 
     const card = createMovieCard(poster, finalTitle);
@@ -96,6 +92,7 @@ async function loadPage(page) {
   updatePaginationControls();
 }
 
+// Pagination Controls
 function updatePaginationControls() {
   document.getElementById("pagination").innerHTML = `
     <button onclick="prevPage()" ${currentPage === 1 ? "disabled" : ""}>Previous</button>
