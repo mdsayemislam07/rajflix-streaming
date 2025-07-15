@@ -6,7 +6,7 @@ const drive_api = "https://script.google.com/macros/s/AKfycbzh3fRccgpIXlskFuBHcE
 let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
-const cache = JSON.parse(localStorage.getItem("tmdbCache") || "{}");
+const cache = {};
 
 function extractTitleAndYear(fileName) {
   let name = fileName.replace(/\.[^/.]+$/, "");
@@ -33,7 +33,6 @@ async function searchTMDB(title, year) {
   if (data.results && data.results.length > 0) {
     const result = { poster: data.results[0].poster_path, title: data.results[0].title };
     cache[cacheKey] = result;
-    localStorage.setItem("tmdbCache", JSON.stringify(cache));
     return result;
   }
 
@@ -44,7 +43,6 @@ async function searchTMDB(title, year) {
   if (data.results && data.results.length > 0) {
     const result = { poster: data.results[0].poster_path, title: data.results[0].name };
     cache[cacheKey] = result;
-    localStorage.setItem("tmdbCache", JSON.stringify(cache));
     return result;
   }
 
@@ -54,23 +52,7 @@ async function searchTMDB(title, year) {
   }
 
   cache[cacheKey] = null;
-  localStorage.setItem("tmdbCache", JSON.stringify(cache));
   return null;
-}
-
-function createSkeletonCard() {
-  const card = document.createElement("div");
-  card.className = "movie skeleton";
-
-  const img = document.createElement("div");
-  img.className = "skeleton-img";
-
-  const caption = document.createElement("div");
-  caption.className = "skeleton-text";
-
-  card.appendChild(img);
-  card.appendChild(caption);
-  return card;
 }
 
 function createMovieCard(poster, title, isNew) {
@@ -101,11 +83,6 @@ async function loadPage(page) {
   const container = document.getElementById("movies");
   container.innerHTML = "";
 
-  // Show skeletons first
-  for (let i = 0; i < itemsPerPage; i++) {
-    container.appendChild(createSkeletonCard());
-  }
-
   const start = (page - 1) * itemsPerPage;
   const end = start + itemsPerPage;
   const currentItems = allFiles.slice(start, end);
@@ -121,16 +98,12 @@ async function loadPage(page) {
       finalTitle = tmdbResult.title;
     }
 
-    const isNew = index < 8;
-    return createMovieCard(poster, finalTitle, isNew);
+    const isNew = index < 8; // Top 8 items will get "New" badge
+    const card = createMovieCard(poster, finalTitle, isNew);
+    container.appendChild(card);
   });
 
-  const cards = await Promise.all(promises);
-
-  container.innerHTML = ""; // Remove skeletons
-
-  cards.forEach(card => container.appendChild(card));
-
+  await Promise.all(promises);
   updatePaginationControls();
 }
 
@@ -157,7 +130,7 @@ function nextPage() {
 }
 
 async function fetchFiles() {
-  const res = await fetch(drive_api + "?t=" + new Date().getTime());
+  const res = await fetch(drive_api + "?t=" + new Date().getTime()); // Prevent browser cache
   const files = await res.json();
   allFiles = files;
   currentPage = 1;
