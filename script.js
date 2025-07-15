@@ -7,7 +7,6 @@ let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
 
-// Cache System
 let tmdbCache = JSON.parse(localStorage.getItem("tmdbCache") || "{}");
 let fileCache = JSON.parse(localStorage.getItem("fileCache") || "[]");
 
@@ -100,18 +99,26 @@ async function loadPage(page) {
     let poster = file.url;
     let finalTitle = file.name;
 
-    if (tmdbCache[cacheKey] && tmdbCache[cacheKey].poster) {
-      poster = tmdbCache[cacheKey].poster;
-      finalTitle = tmdbCache[cacheKey].title;
+    if (tmdbCache[cacheKey]) {
+      if (tmdbCache[cacheKey].poster) {
+        poster = tmdbCache[cacheKey].poster;
+        finalTitle = tmdbCache[cacheKey].title;
+      } else {
+        poster = file.url; // fallback to drive image
+        finalTitle = tmdbCache[cacheKey].title;
+      }
     } else {
       const tmdbResult = await searchTMDB(title, year);
       if (tmdbResult && tmdbResult.poster) {
         poster = tmdbResult.poster;
         finalTitle = tmdbResult.title;
+      } else {
+        poster = file.url; // fallback
+        finalTitle = title;
       }
     }
 
-    const isNew = index < 8; // Top 8 items will get "New" badge
+    const isNew = index < 8;
     const card = createMovieCard(poster, finalTitle, isNew);
     container.appendChild(card);
   });
@@ -146,11 +153,9 @@ async function fetchFiles() {
   const res = await fetch(drive_api + "?t=" + new Date().getTime());
   const files = await res.json();
 
-  // Compare with fileCache to detect new files
   const oldFileNames = fileCache.map(f => f.name);
   const newFiles = files.filter(f => !oldFileNames.includes(f.name));
 
-  // Update Cache
   fileCache = files;
   localStorage.setItem("fileCache", JSON.stringify(fileCache));
 
@@ -159,7 +164,6 @@ async function fetchFiles() {
   loadPage(currentPage);
 }
 
-// Auto Refresh Every 30 Seconds
 setInterval(fetchFiles, 30000);
 
 if (fileCache.length > 0) {
