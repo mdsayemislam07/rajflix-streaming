@@ -136,14 +136,20 @@ function nextPage() {
   }
 }
 
-// Fetch Files
+// Fetch Files with Sort (but keep currentPage as is)
 async function fetchFiles() {
   const res = await fetch(drive_api);
-  const files = await res.json();
-  allFiles = files;
-  currentPage = 1;
+  let files = await res.json();
+
+  allFiles = files.sort((a, b) => {
+    if (a.modifiedTime && b.modifiedTime) {
+      return new Date(b.modifiedTime) - new Date(a.modifiedTime);
+    }
+    return b.name.localeCompare(a.name);
+  });
+
   loadPage(currentPage);
 }
 
 fetchFiles();
-setInterval(fetchFiles, 30 * 1000); // 30 sec auto refresh
+setInterval(fetchFiles, 20 * 1000); // Auto refresh every 20s
