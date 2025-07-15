@@ -136,11 +136,14 @@ function nextPage() {
   }
 }
 
-// Fetch Files
+// Fetch Files with Newest First Sort
 async function fetchFiles() {
   const res = await fetch(drive_api);
   const files = await res.json();
-  allFiles = files;
+
+  // Sort by time (newest first)
+  allFiles = files.sort((a, b) => new Date(b.time) - new Date(a.time));
+
   currentPage = 1;
   loadPage(currentPage);
 }
