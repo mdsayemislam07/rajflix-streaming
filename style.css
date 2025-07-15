@@ -1,7 +1,78 @@
+.movie { 
+  position: relative; 
+  width: 150px; 
+  display: inline-block; 
+  margin: 10px; 
+  text-align: center; 
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
 
-.movie { position: relative; width: 150px; display: inline-block; margin: 10px; text-align: center; }
-.movie img { width: 100%; border-radius: 8px; }
-.skeleton { background: linear-gradient(90deg, #ddd, #eee, #ddd); animation: pulse 1.5s infinite; border-radius:8px; }
-@keyframes pulse { 0% {background-position: -200px 0;} 100% {background-position: 200px 0;} }
-.badge { position: absolute; top:5px; right:5px; background:red; color:white; padding:2px 6px; border-radius:4px; font-size:12px; }
-.movie-title { margin-top:5px; font-size:14px; }
+.movie:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+}
+
+.movie img { 
+  width: 100%; 
+  border-radius: 12px; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.skeleton { 
+  width: 100%;
+  height: 225px;
+  background: linear-gradient(90deg, #ddd, #eee, #ddd); 
+  background-size: 400% 100%;
+  animation: pulse 1.5s infinite; 
+  border-radius:12px; 
+}
+
+@keyframes pulse { 
+  0% {background-position: -200px 0;} 
+  100% {background-position: 200px 0;} 
+}
+
+.badge { 
+  position: absolute; 
+  top:5px; 
+  right:5px; 
+  background: #e50914; 
+  color: white; 
+  padding: 4px 8px; 
+  border-radius: 8px; 
+  font-size: 12px; 
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.movie-title { 
+  margin-top:8px; 
+  font-size:14px; 
+  color: #333; 
+  font-weight: 500; 
+}
+
+body {
+  background: #121212; 
+  color: #fff; 
+  font-family: Arial, sans-serif;
+}
+
+#pagination button {
+  background: #e50914; 
+  color: white; 
+  border: none; 
+  padding: 8px 12px; 
+  margin: 5px; 
+  border-radius: 6px; 
+  cursor: pointer; 
+  transition: background 0.3s;
+}
+
+#pagination button:hover {
+  background: #ff1b2d;
+}
+
+#pagination span {
+  margin: 0 10px;
+  font-size: 14px;
+}
