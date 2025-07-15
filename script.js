@@ -1,6 +1,6 @@
 const proxy_api = "https://raj-flix.movielovers.workers.dev/";
 const img_path = "https://image.tmdb.org/t/p/w500";
-const drive_api = "https://script.google.com/macros/s/AKfycbxiZQffAaRXzgq_w8tcP-Sal5xq-sqsTC5GKBeAJkxKPUNkgNfxATJ21HL8CjPq79MN/exec";
+const drive_api = "https://script.google.com/macros/s/AKfycbxK7ya6v5f-bcR2t6Bo_Ip2bXE6zUt2dVPUjMRX5fgNyWcFvzY1_0bHvMw-ECTvD9ht/exec";
 
 let allFiles = [];
 let currentPage = 1;
