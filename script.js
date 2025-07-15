@@ -1,13 +1,14 @@
-const client_key = "275d762c21f3a57f54f0001eefef97ab";
-const img_path = "https://image.tmdb.org/t/p/w500";
-const drive_api = "https://script.google.com/macros/s/AKfycbzh3fRccgpIXlskFuBHcEuWCQkQzWP7Rt8a8BedlgA2dnpI3YDNcOLGKnylmgXGfk7u/exec";
 const proxy_api = "https://raj-flix.movielovers.workers.dev/";
+const img_path = "https://image.tmdb.org/t/p/w500";
+const drive_api = "https://script.google.com/macros/s/AKfycbxiZQffAaRXzgq_w8tcP-Sal5xq-sqsTC5GKBeAJkxKPUNkgNfxATJ21HL8CjPq79MN/exec";
 
 let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
-const cache = JSON.parse(localStorage.getItem("tmdbCache") || "{}");
+const cacheKey = "tmdbCacheV1";
+let tmdbCache = JSON.parse(localStorage.getItem(cacheKey)) || {};
 
+// Title Cleaner + Year Extractor
 function extractTitleAndYear(fileName) {
   let name = fileName.replace(/\.[^/.]+$/, "");
   name = name.replace(/[\._]/g, " ");
@@ -19,43 +20,52 @@ function extractTitleAndYear(fileName) {
   return { title: name.trim(), year: year };
 }
 
+// TMDB Search with Proxy & Cache
 async function searchTMDB(title, year) {
-  const cacheKey = `${title}_${year}`;
-  if (cache[cacheKey]) return cache[cacheKey];
+  let cacheKeyTitle = `${title}_${year || ""}`;
+  if (tmdbCache[cacheKeyTitle]) return tmdbCache[cacheKeyTitle];
 
-  let url = `${proxy_api}?query=${encodeURIComponent(title)}`;
+  let url = `${proxy_api}?type=movie&query=${encodeURIComponent(title)}`;
   if (year) url += `&year=${year}`;
 
-  const res = await fetch(url);
-  const data = await res.json();
+  let res = await fetch(url);
+  let data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    let result;
-    if (data.results[0].title) {
-      result = { poster: data.results[0].poster_path, title: data.results[0].title };
-    } else {
-      result = { poster: data.results[0].poster_path, title: data.results[0].name };
-    }
-    cache[cacheKey] = result;
-    localStorage.setItem("tmdbCache", JSON.stringify(cache));
-    return result;
+    tmdbCache[cacheKeyTitle] = { poster: data.results[0].poster_path, title: data.results[0].title };
+    localStorage.setItem(cacheKey, JSON.stringify(tmdbCache));
+    return tmdbCache[cacheKeyTitle];
   }
 
+  // Try TV
+  url = `${proxy_api}?type=tv&query=${encodeURIComponent(title)}`;
+  res = await fetch(url);
+  data = await res.json();
+
+  if (data.results && data.results.length > 0) {
+    tmdbCache[cacheKeyTitle] = { poster: data.results[0].poster_path, title: data.results[0].name };
+    localStorage.setItem(cacheKey, JSON.stringify(tmdbCache));
+    return tmdbCache[cacheKeyTitle];
+  }
+
+  // Shorter query fallback
   if (title.split(" ").length > 3) {
     let shortTitle = title.split(" ").slice(0, 3).join(" ");
     return await searchTMDB(shortTitle, null);
   }
 
-  cache[cacheKey] = null;
-  localStorage.setItem("tmdbCache", JSON.stringify(cache));
+  tmdbCache[cacheKeyTitle] = null;
+  localStorage.setItem(cacheKey, JSON.stringify(tmdbCache));
   return null;
 }
 
-function createMovieCard(poster, title, isNew) {
+// Create Movie Card
+function createMovieCard(poster, title, isRecent) {
   const card = document.createElement("div");
   card.className = "movie";
 
   const img = document.createElement("img");
+  img.loading = "lazy";
   img.src = poster;
   img.alt = title;
 
@@ -63,7 +73,7 @@ function createMovieCard(poster, title, isNew) {
   caption.className = "movie-title";
   caption.textContent = title;
 
-  if (isNew) {
+  if (isRecent) {
     const badge = document.createElement("span");
     badge.className = "badge";
     badge.textContent = "New";
@@ -75,30 +85,13 @@ function createMovieCard(poster, title, isNew) {
   return card;
 }
 
-function createSkeletonCard() {
-  const card = document.createElement("div");
-  card.className = "movie skeleton";
-  const img = document.createElement("div");
-  img.className = "skeleton-img";
-  const caption = document.createElement("div");
-  caption.className = "skeleton-text";
-  card.appendChild(img);
-  card.appendChild(caption);
-  return card;
-}
-
+// Load Page
 async function loadPage(page) {
   const container = document.getElementById("movies");
   container.innerHTML = "";
-
   const start = (page - 1) * itemsPerPage;
   const end = start + itemsPerPage;
   const currentItems = allFiles.slice(start, end);
-
-  // Skeleton Loader
-  for (let i = 0; i < currentItems.length; i++) {
-    container.appendChild(createSkeletonCard());
-  }
 
   const promises = currentItems.map(async (file, index) => {
     const { title, year } = extractTitleAndYear(file.name);
@@ -111,17 +104,16 @@ async function loadPage(page) {
       finalTitle = tmdbResult.title;
     }
 
-    const isNew = index < 8;
-    const card = createMovieCard(poster, finalTitle, isNew);
-
-    // Replace skeleton with actual card
-    container.replaceChild(card, container.children[index]);
+    const isRecent = index < 8 && page === 1;
+    const card = createMovieCard(poster, finalTitle, isRecent);
+    container.appendChild(card);
   });
 
   await Promise.all(promises);
   updatePaginationControls();
 }
 
+// Pagination
 function updatePaginationControls() {
   document.getElementById("pagination").innerHTML = `
     <button onclick="prevPage()" ${currentPage === 1 ? "disabled" : ""}>Previous</button>
@@ -144,20 +136,14 @@ function nextPage() {
   }
 }
 
+// Fetch Files
 async function fetchFiles() {
-  const res = await fetch(drive_api + "?t=" + new Date().getTime());
-  let files = await res.json();
-
-  // Sort by modifiedTime descending (newest first)
-  files.sort((a, b) => new Date(b.modifiedTime) - new Date(a.modifiedTime));
-
+  const res = await fetch(drive_api);
+  const files = await res.json();
   allFiles = files;
   currentPage = 1;
   loadPage(currentPage);
 }
 
-// Auto Refresh Every 30 sec
-setInterval(fetchFiles, 30000);
-
-// Initial Load
 fetchFiles();
+setInterval(fetchFiles, 30 * 1000); // 30 sec auto refresh
