@@ -152,4 +152,4 @@ async function fetchFiles() {
 }
 
 fetchFiles();
-setInterval(fetchFiles, 20 * 1000); // Auto refresh every 20s
+setInterval(fetchFiles, 50 * 1000); // Auto refresh every 20s
