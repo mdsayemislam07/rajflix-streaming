@@ -60,17 +60,19 @@ async function searchTMDB(title, year) {
   return tmdbCache[cacheKey];
 }
 
-function createMovieCard(poster, title, isNew) {
+function createMovieCard(isNew) {
   const card = document.createElement("div");
   card.className = "movie";
 
+  const skeleton = document.createElement("div");
+  skeleton.className = "skeleton";
+  skeleton.style.height = "225px";
+
   const img = document.createElement("img");
-  img.src = poster;
-  img.alt = title;
+  img.style.opacity = "0"; // Initially hidden
 
   const caption = document.createElement("div");
   caption.className = "movie-title";
-  caption.textContent = title;
 
   if (isNew) {
     const badge = document.createElement("span");
@@ -79,9 +81,10 @@ function createMovieCard(poster, title, isNew) {
     card.appendChild(badge);
   }
 
+  card.appendChild(skeleton);
   card.appendChild(img);
   card.appendChild(caption);
-  return card;
+  return { card, img, caption, skeleton };
 }
 
 async function loadPage(page) {
@@ -96,6 +99,10 @@ async function loadPage(page) {
     const { title, year } = extractTitleAndYear(file.name);
     const cacheKey = `${title}_${year}`;
 
+    const isNew = index < 8;
+    const { card, img, caption, skeleton } = createMovieCard(isNew);
+    container.appendChild(card);
+
     let poster = file.url;
     let finalTitle = file.name;
 
@@ -104,7 +111,7 @@ async function loadPage(page) {
         poster = tmdbCache[cacheKey].poster;
         finalTitle = tmdbCache[cacheKey].title;
       } else {
-        poster = file.url; // fallback to drive image
+        poster = file.url;
         finalTitle = tmdbCache[cacheKey].title;
       }
     } else {
@@ -113,14 +120,18 @@ async function loadPage(page) {
         poster = tmdbResult.poster;
         finalTitle = tmdbResult.title;
       } else {
-        poster = file.url; // fallback
+        poster = file.url;
         finalTitle = title;
       }
     }
 
-    const isNew = index < 8;
-    const card = createMovieCard(poster, finalTitle, isNew);
-    container.appendChild(card);
+    img.onload = () => {
+      skeleton.style.display = "none";
+      img.style.opacity = "1";
+    };
+
+    img.src = poster;
+    caption.textContent = finalTitle;
   });
 
   await Promise.all(promises);
