@@ -1,172 +1,170 @@
-const client_key = "275d762c21f3a57f54f0001eefef97ab";  
-const api_url = "https://api.themoviedb.org/3";  
-const img_path = "https://image.tmdb.org/t/p/w500";  
-const drive_api = "https://script.google.com/macros/s/AKfycbzh3fRccgpIXlskFuBHcEuWCQkQzWP7Rt8a8BedlgA2dnpI3YDNcOLGKnylmgXGfk7u/exec";  
+const client_key = "275d762c21f3a57f54f0001eefef97ab";
+const api_url = "https://api.themoviedb.org/3";
+const img_path = "https://image.tmdb.org/t/p/w500";
+const drive_api = "https://script.google.com/macros/s/AKfycbzh3fRccgpIXlskFuBHcEuWCQkQzWP7Rt8a8BedlgA2dnpI3YDNcOLGKnylmgXGfk7u/exec";
 
-let allFiles = [];  
-let currentPage = 1;  
-const itemsPerPage = 20;  
-const cache = JSON.parse(localStorage.getItem("tmdbCache") || "{}");  
-const driveCache = JSON.parse(localStorage.getItem("driveCacheWithPoster") || "[]");
+let allFiles = [];
+let currentPage = 1;
+const itemsPerPage = 20;
 
-function extractTitleAndYear(fileName) {  
-  let name = fileName.replace(/\.[^/.]+$/, "");  
-  name = name.replace(/[\._]/g, " ");  
-  let yearMatch = name.match(/\b(19|20)\d{2}\b/);  
-  let year = yearMatch ? yearMatch[0] : null;  
-  name = name.replace(/[\(\)\[\]]/g, "");  
-  name = name.replace(/\b(19|20)\d{2}\b/, "");  
-  name = name.replace(/\b(480p|720p|1080p|2160p|BluRay|WEBRip|HDRip|x264|x265|HEVC|AAC|MP4|MKV|Dual Audio|Hindi|Bangla|English|BDRip|BRRip|HDCAM|WEB-DL)\b/gi, "");  
-  return { title: name.trim(), year: year };  
-}  
+// Cache System
+let tmdbCache = JSON.parse(localStorage.getItem("tmdbCache") || "{}");
+let fileCache = JSON.parse(localStorage.getItem("fileCache") || "[]");
 
-async function searchTMDB(title, year) {  
-  const cacheKey = `${title}_${year}`;  
-  if (cache[cacheKey]) return cache[cacheKey];  
+function extractTitleAndYear(fileName) {
+  let name = fileName.replace(/\.[^/.]+$/, "");
+  name = name.replace(/[\._]/g, " ");
+  let yearMatch = name.match(/\b(19|20)\d{2}\b/);
+  let year = yearMatch ? yearMatch[0] : null;
+  name = name.replace(/[\(\)\[\]]/g, "");
+  name = name.replace(/\b(19|20)\d{2}\b/, "");
+  name = name.replace(/\b(480p|720p|1080p|2160p|BluRay|WEBRip|HDRip|x264|x265|HEVC|AAC|MP4|MKV|Dual Audio|Hindi|Bangla|English|BDRip|BRRip|HDCAM|WEB-DL)\b/gi, "");
+  return { title: name.trim(), year: year };
+}
 
-  let query = encodeURIComponent(title);  
-  let movieUrl = `https://raj-flix.movielovers.workers.dev/?type=movie&query=${query}`;  
-  if (year) movieUrl += `&year=${year}`;  
+async function searchTMDB(title, year) {
+  const cacheKey = `${title}_${year}`;
+  if (tmdbCache[cacheKey]) return tmdbCache[cacheKey];
 
-  let res = await fetch(movieUrl);  
-  let data = await res.json();  
+  let query = encodeURIComponent(title);
+  let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
+  if (year) movieUrl += `&year=${year}`;
 
-  if (data.results && data.results.length > 0) {  
-    const result = { poster: data.results[0].poster_path, title: data.results[0].title };  
-    cache[cacheKey] = result;  
-    localStorage.setItem("tmdbCache", JSON.stringify(cache));  
-    return result;  
-  }  
+  let res = await fetch(movieUrl);
+  let data = await res.json();
 
-  let tvUrl = `https://raj-flix.movielovers.workers.dev/?type=tv&query=${query}`;  
-  res = await fetch(tvUrl);  
-  data = await res.json();  
+  if (data.results && data.results.length > 0) {
+    const result = { poster: img_path + data.results[0].poster_path, title: data.results[0].title };
+    tmdbCache[cacheKey] = result;
+    localStorage.setItem("tmdbCache", JSON.stringify(tmdbCache));
+    return result;
+  }
 
-  if (data.results && data.results.length > 0) {  
-    const result = { poster: data.results[0].poster_path, title: data.results[0].name };  
-    cache[cacheKey] = result;  
-    localStorage.setItem("tmdbCache", JSON.stringify(cache));  
-    return result;  
-  }  
+  let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
+  res = await fetch(tvUrl);
+  data = await res.json();
 
-  if (title.split(" ").length > 3) {  
-    let shortTitle = title.split(" ").slice(0, 3).join(" ");  
-    return await searchTMDB(shortTitle, null);  
-  }  
+  if (data.results && data.results.length > 0) {
+    const result = { poster: img_path + data.results[0].poster_path, title: data.results[0].name };
+    tmdbCache[cacheKey] = result;
+    localStorage.setItem("tmdbCache", JSON.stringify(tmdbCache));
+    return result;
+  }
 
-  cache[cacheKey] = null;  
-  localStorage.setItem("tmdbCache", JSON.stringify(cache));  
-  return null;  
-}  
+  if (title.split(" ").length > 3) {
+    let shortTitle = title.split(" ").slice(0, 3).join(" ");
+    return await searchTMDB(shortTitle, null);
+  }
 
-function createMovieCard(poster, title, isNew) {  
-  const card = document.createElement("div");  
-  card.className = "movie";  
+  tmdbCache[cacheKey] = { poster: null, title: title };
+  localStorage.setItem("tmdbCache", JSON.stringify(tmdbCache));
+  return tmdbCache[cacheKey];
+}
 
-  const img = document.createElement("img");  
-  img.src = poster;  
-  img.alt = title;  
+function createMovieCard(poster, title, isNew) {
+  const card = document.createElement("div");
+  card.className = "movie";
 
-  const caption = document.createElement("div");  
-  caption.className = "movie-title";  
-  caption.textContent = title;  
+  const img = document.createElement("img");
+  img.src = poster;
+  img.alt = title;
 
-  if (isNew) {  
-    const badge = document.createElement("span");  
-    badge.className = "badge";  
-    badge.textContent = "New";  
-    card.appendChild(badge);  
-  }  
+  const caption = document.createElement("div");
+  caption.className = "movie-title";
+  caption.textContent = title;
 
-  card.appendChild(img);  
-  card.appendChild(caption);  
-  return card;  
-}  
+  if (isNew) {
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = "New";
+    card.appendChild(badge);
+  }
 
-async function loadPage(page) {  
-  const container = document.getElementById("movies");  
-  container.innerHTML = "";  
+  card.appendChild(img);
+  card.appendChild(caption);
+  return card;
+}
 
-  const start = (page - 1) * itemsPerPage;  
-  const end = start + itemsPerPage;  
-  const currentItems = allFiles.slice(start, end);  
+async function loadPage(page) {
+  const container = document.getElementById("movies");
+  container.innerHTML = "";
 
-  const promises = currentItems.map(async (file, index) => {  
-    let poster = file.poster || file.url;  
-    let finalTitle = file.displayTitle || file.name;  
-    const isNew = index < 8;  
-    const card = createMovieCard(poster, finalTitle, isNew);  
-    container.appendChild(card);  
-  });  
+  const start = (page - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  const currentItems = allFiles.slice(start, end);
 
-  await Promise.all(promises);  
-  updatePaginationControls();  
-}  
+  const promises = currentItems.map(async (file, index) => {
+    const { title, year } = extractTitleAndYear(file.name);
+    const cacheKey = `${title}_${year}`;
 
-function updatePaginationControls() {  
-  document.getElementById("pagination").innerHTML = `  
-    <button onclick="prevPage()" ${currentPage === 1 ? "disabled" : ""}>Previous</button>  
-    <span>Page ${currentPage} of ${Math.ceil(allFiles.length / itemsPerPage)}</span>  
-    <button onclick="nextPage()" ${currentPage * itemsPerPage >= allFiles.length ? "disabled" : ""}>Next</button>  
-  `;  
-}  
+    let poster = file.url;
+    let finalTitle = file.name;
 
-function prevPage() {  
-  if (currentPage > 1) {  
-    currentPage--;  
-    loadPage(currentPage);  
-  }  
-}  
+    if (tmdbCache[cacheKey] && tmdbCache[cacheKey].poster) {
+      poster = tmdbCache[cacheKey].poster;
+      finalTitle = tmdbCache[cacheKey].title;
+    } else {
+      const tmdbResult = await searchTMDB(title, year);
+      if (tmdbResult && tmdbResult.poster) {
+        poster = tmdbResult.poster;
+        finalTitle = tmdbResult.title;
+      }
+    }
 
-function nextPage() {  
-  if (currentPage * itemsPerPage < allFiles.length) {  
-    currentPage++;  
-    loadPage(currentPage);  
-  }  
-}  
+    const isNew = index < 8; // Top 8 items will get "New" badge
+    const card = createMovieCard(poster, finalTitle, isNew);
+    container.appendChild(card);
+  });
 
-// Load from cache for instant load  
-function loadFromCache() {  
-  if (driveCache.length > 0) {  
-    allFiles = driveCache;  
-    loadPage(currentPage);  
-  }  
-}  
+  await Promise.all(promises);
+  updatePaginationControls();
+}
 
-async function fetchFiles() {  
-  try {  
-    const res = await fetch(drive_api + "?t=" + new Date().getTime());  
-    const files = await res.json();  
-    const updatedFiles = [];  
+function updatePaginationControls() {
+  document.getElementById("pagination").innerHTML = `
+    <button onclick="prevPage()" ${currentPage === 1 ? "disabled" : ""}>Previous</button>
+    <span>Page ${currentPage} of ${Math.ceil(allFiles.length / itemsPerPage)}</span>
+    <button onclick="nextPage()" ${currentPage * itemsPerPage >= allFiles.length ? "disabled" : ""}>Next</button>
+  `;
+}
 
-    for (const file of files) {  
-      const { title, year } = extractTitleAndYear(file.name);  
-      let poster = file.url;  
-      let displayTitle = file.name;  
+function prevPage() {
+  if (currentPage > 1) {
+    currentPage--;
+    loadPage(currentPage);
+  }
+}
 
-      const tmdbResult = await searchTMDB(title, year);  
-      if (tmdbResult && tmdbResult.poster) {  
-        poster = img_path + tmdbResult.poster;  
-        displayTitle = tmdbResult.title;  
-      }  
+function nextPage() {
+  if (currentPage * itemsPerPage < allFiles.length) {
+    currentPage++;
+    loadPage(currentPage);
+  }
+}
 
-      updatedFiles.push({  
-        ...file,  
-        poster: poster,  
-        displayTitle: displayTitle  
-      });  
-    }  
+async function fetchFiles() {
+  const res = await fetch(drive_api + "?t=" + new Date().getTime());
+  const files = await res.json();
 
-    allFiles = updatedFiles;  
-    currentPage = 1;  
-    localStorage.setItem("driveCacheWithPoster", JSON.stringify(allFiles));  
-    loadPage(currentPage);  
+  // Compare with fileCache to detect new files
+  const oldFileNames = fileCache.map(f => f.name);
+  const newFiles = files.filter(f => !oldFileNames.includes(f.name));
 
-  } catch (e) {  
-    console.error("Drive Fetch Error:", e);  
-  }  
-}  
+  // Update Cache
+  fileCache = files;
+  localStorage.setItem("fileCache", JSON.stringify(fileCache));
 
-loadFromCache();  
-fetchFiles();  
-setInterval(fetchFiles, 20000);  
+  allFiles = files;
+  currentPage = 1;
+  loadPage(currentPage);
+}
+
+// Auto Refresh Every 30 Seconds
+setInterval(fetchFiles, 30000);
+
+if (fileCache.length > 0) {
+  allFiles = fileCache;
+  loadPage(currentPage);
+} else {
+  fetchFiles();
+}
