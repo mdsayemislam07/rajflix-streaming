@@ -1,7 +1,5 @@
-const client_key = "275d762c21f3a57f54f0001eefef97ab";
-const api_url = "https://api.themoviedb.org/3";
+const api_url = "https://raj-flix.movielovers.workers.dev";
 const img_path = "https://image.tmdb.org/t/p/w500";
-const placeholder_poster = "https://via.placeholder.com/300x450?text=No+Poster";
 const drive_api = "https://script.google.com/macros/s/AKfycbzh3fRccgpIXlskFuBHcEuWCQkQzWP7Rt8a8BedlgA2dnpI3YDNcOLGKnylmgXGfk7u/exec";
 
 let allFiles = [];
@@ -27,24 +25,24 @@ async function searchTMDB(title, year) {
   if (tmdbCache[cacheKey]) return tmdbCache[cacheKey];
 
   let query = encodeURIComponent(title);
-  let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
-  if (year) movieUrl += `&year=${year}`;
+  let url = `${api_url}?type=movie&query=${query}`;
+  if (year) url += `&year=${year}`;
 
-  let res = await fetch(movieUrl);
+  let res = await fetch(url);
   let data = await res.json();
 
-  if (data.results && data.results.length > 0 && data.results[0].poster_path) {
+  if (data.results && data.results.length > 0) {
     const result = { poster: img_path + data.results[0].poster_path, title: data.results[0].title };
     tmdbCache[cacheKey] = result;
     localStorage.setItem("tmdbCache", JSON.stringify(tmdbCache));
     return result;
   }
 
-  let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
-  res = await fetch(tvUrl);
+  url = `${api_url}?type=tv&query=${query}`;
+  res = await fetch(url);
   data = await res.json();
 
-  if (data.results && data.results.length > 0 && data.results[0].poster_path) {
+  if (data.results && data.results.length > 0) {
     const result = { poster: img_path + data.results[0].poster_path, title: data.results[0].name };
     tmdbCache[cacheKey] = result;
     localStorage.setItem("tmdbCache", JSON.stringify(tmdbCache));
@@ -56,26 +54,27 @@ async function searchTMDB(title, year) {
     return await searchTMDB(shortTitle, null);
   }
 
-  // Fallback: No poster found
-  const result = { poster: placeholder_poster, title: title };
-  tmdbCache[cacheKey] = result;
+  tmdbCache[cacheKey] = { poster: null, title: title };
   localStorage.setItem("tmdbCache", JSON.stringify(tmdbCache));
-  return result;
+  return tmdbCache[cacheKey];
 }
 
-function createMovieCard(isNew) {
+function createMovieCard(file, index) {
+  const { title, year } = extractTitleAndYear(file.name);
+  const cacheKey = `${title}_${year}`;
+  const isNew = index < 8;
+
   const card = document.createElement("div");
   card.className = "movie";
 
   const skeleton = document.createElement("div");
   skeleton.className = "skeleton";
-  skeleton.style.height = "225px";
 
   const img = document.createElement("img");
-  img.style.opacity = "0";
 
   const caption = document.createElement("div");
   caption.className = "movie-title";
+  caption.textContent = file.name;
 
   if (isNew) {
     const badge = document.createElement("span");
@@ -87,10 +86,41 @@ function createMovieCard(isNew) {
   card.appendChild(skeleton);
   card.appendChild(img);
   card.appendChild(caption);
-  return { card, img, caption, skeleton };
+
+  (async () => {
+    let poster = null;
+    let finalTitle = file.name;
+
+    if (tmdbCache[cacheKey] && tmdbCache[cacheKey].poster) {
+      poster = tmdbCache[cacheKey].poster;
+      finalTitle = tmdbCache[cacheKey].title;
+    } else {
+      const tmdbResult = await searchTMDB(title, year);
+      if (tmdbResult && tmdbResult.poster) {
+        poster = tmdbResult.poster;
+        finalTitle = tmdbResult.title;
+      }
+    }
+
+    if (poster) {
+      img.src = poster;
+      img.alt = finalTitle;
+      caption.textContent = finalTitle;
+      img.onload = () => {
+        skeleton.style.display = "none";
+        img.style.display = "block";
+        img.style.opacity = "1";
+      };
+    } else {
+      skeleton.style.display = "none";
+      img.style.display = "none";
+    }
+  })();
+
+  return card;
 }
 
-async function loadPage(page) {
+function loadPage(page) {
   const container = document.getElementById("movies");
   container.innerHTML = "";
 
@@ -98,27 +128,11 @@ async function loadPage(page) {
   const end = start + itemsPerPage;
   const currentItems = allFiles.slice(start, end);
 
-  const promises = currentItems.map(async (file, index) => {
-    const { title, year } = extractTitleAndYear(file.name);
-    const cacheKey = `${title}_${year}`;
-
-    const isNew = index < 8;
-    const { card, img, caption, skeleton } = createMovieCard(isNew);
+  currentItems.forEach((file, index) => {
+    const card = createMovieCard(file, index);
     container.appendChild(card);
-
-    const tmdbResult = await searchTMDB(title, year);
-
-    img.onload = () => {
-      skeleton.style.display = "none";
-      img.style.opacity = "1";
-      img.style.transition = "opacity 0.5s";
-    };
-
-    img.src = tmdbResult.poster;
-    caption.textContent = tmdbResult.title;
   });
 
-  await Promise.all(promises);
   updatePaginationControls();
 }
 
