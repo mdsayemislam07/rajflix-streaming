@@ -1,6 +1,6 @@
 const proxy_api = "https://raj-flix.movielovers.workers.dev/";
 const img_path = "https://image.tmdb.org/t/p/w500";
-const drive_api = "https://script.google.com/macros/s/AKfycbxiZQffAaRXzgq_w8tcP-Sal5xq-sqsTC5GKBeAJkxKPUNkgNfxATJ21HL8CjPq79MN/exec";
+const drive_api = "https://script.google.com/macros/s/AKfycbx0aPwjgltJlpUIo_29I7SbTVL33-XJq0UNVXaK7-UMINyt4yBodq5EhwBYe1w_K6LW/exec";
 
 let allFiles = [];
 let currentPage = 1;
@@ -136,21 +136,15 @@ function nextPage() {
   }
 }
 
-// Fetch Files with Safe Sort (newest first if possible)
-async function fetchFiles() {
+// Fetch Files
+async function fetchFiles(isAuto = false) {
   const res = await fetch(drive_api);
-  let files = await res.json();
-
-  allFiles = files.sort((a, b) => {
-    if (a.modifiedTime && b.modifiedTime) {
-      return new Date(b.modifiedTime) - new Date(a.modifiedTime);
-    }
-    // fallback to name-based sorting if modifiedTime is not available
-    return b.name.localeCompare(a.name);
-  });
+  const files = await res.json();
+  allFiles = files;
+  if (!isAuto) currentPage = 1; // manual refresh reset page, auto refresh doesn't
 
   loadPage(currentPage);
 }
 
 fetchFiles();
-setInterval(fetchFiles, 20 * 1000); // 20 sec auto refresh
+setInterval(() => fetchFiles(true), 20 * 1000); // 20 sec auto refresh without page reset
