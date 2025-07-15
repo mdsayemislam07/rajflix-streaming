@@ -1,44 +1,7 @@
-body {
-  background: #0d0d0d;
-  color: #fff;
-  font-family: Arial, sans-serif;
-  text-align: center;
-  margin: 0;
-  padding: 20px;
-}
-h1 {
-  margin-bottom: 20px;
-}
-.grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.movie {
-  background: #1a1a1a;
-  border-radius: 10px;
-  margin: 10px;
-  width: 200px;
-  overflow: hidden;
-  box-shadow: 0 0 10px rgba(0,0,0,0.5);
-}
-.movie img {
-  width: 100%;
-}
-.movie-title {
-  padding: 10px;
-  font-size: 14px;
-}
-#pagination button {
-  padding: 8px 15px;
-  margin: 5px;
-  border: none;
-  background: #ff4444;
-  color: white;
-  border-radius: 5px;
-  cursor: pointer;
-}
-#pagination button:disabled {
-  background: #555;
-  cursor: not-allowed;
-}
+
+.movie { position: relative; width: 150px; display: inline-block; margin: 10px; text-align: center; }
+.movie img { width: 100%; border-radius: 8px; }
+.skeleton { background: linear-gradient(90deg, #ddd, #eee, #ddd); animation: pulse 1.5s infinite; border-radius:8px; }
+@keyframes pulse { 0% {background-position: -200px 0;} 100% {background-position: 200px 0;} }
+.badge { position: absolute; top:5px; right:5px; background:red; color:white; padding:2px 6px; border-radius:4px; font-size:12px; }
+.movie-title { margin-top:5px; font-size:14px; }
