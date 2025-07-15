@@ -1,4 +1,3 @@
-<script>
 const client_key = "275d762c21f3a57f54f0001eefef97ab";  
 const api_url = "https://api.themoviedb.org/3";  
 const img_path = "https://image.tmdb.org/t/p/w500";  
@@ -8,6 +7,7 @@ let allFiles = [];
 let currentPage = 1;  
 const itemsPerPage = 20;  
 const cache = JSON.parse(localStorage.getItem("tmdbCache") || "{}");  
+const driveCache = JSON.parse(localStorage.getItem("driveCacheWithPoster") || "[]");
 
 function extractTitleAndYear(fileName) {  
   let name = fileName.replace(/\.[^/.]+$/, "");  
@@ -25,7 +25,7 @@ async function searchTMDB(title, year) {
   if (cache[cacheKey]) return cache[cacheKey];  
 
   let query = encodeURIComponent(title);  
-  let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;  
+  let movieUrl = `https://raj-flix.movielovers.workers.dev/?type=movie&query=${query}`;  
   if (year) movieUrl += `&year=${year}`;  
 
   let res = await fetch(movieUrl);  
@@ -38,7 +38,7 @@ async function searchTMDB(title, year) {
     return result;  
   }  
 
-  let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;  
+  let tvUrl = `https://raj-flix.movielovers.workers.dev/?type=tv&query=${query}`;  
   res = await fetch(tvUrl);  
   data = await res.json();  
 
@@ -92,16 +92,8 @@ async function loadPage(page) {
   const currentItems = allFiles.slice(start, end);  
 
   const promises = currentItems.map(async (file, index) => {  
-    const { title, year } = extractTitleAndYear(file.name);  
-    let poster = file.url;  
-    let finalTitle = file.name;  
-
-    const tmdbResult = await searchTMDB(title, year);  
-    if (tmdbResult && tmdbResult.poster) {  
-      poster = img_path + tmdbResult.poster;  
-      finalTitle = tmdbResult.title;  
-    }  
-
+    let poster = file.poster || file.url;  
+    let finalTitle = file.displayTitle || file.name;  
     const isNew = index < 8;  
     const card = createMovieCard(poster, finalTitle, isNew);  
     container.appendChild(card);  
@@ -133,11 +125,10 @@ function nextPage() {
   }  
 }  
 
-// Load from cache first for instant render  
+// Load from cache for instant load  
 function loadFromCache() {  
-  const cachedFiles = localStorage.getItem("driveCache");  
-  if (cachedFiles) {  
-    allFiles = JSON.parse(cachedFiles);  
+  if (driveCache.length > 0) {  
+    allFiles = driveCache;  
     loadPage(currentPage);  
   }  
 }  
@@ -146,10 +137,31 @@ async function fetchFiles() {
   try {  
     const res = await fetch(drive_api + "?t=" + new Date().getTime());  
     const files = await res.json();  
-    allFiles = files;  
+    const updatedFiles = [];  
+
+    for (const file of files) {  
+      const { title, year } = extractTitleAndYear(file.name);  
+      let poster = file.url;  
+      let displayTitle = file.name;  
+
+      const tmdbResult = await searchTMDB(title, year);  
+      if (tmdbResult && tmdbResult.poster) {  
+        poster = img_path + tmdbResult.poster;  
+        displayTitle = tmdbResult.title;  
+      }  
+
+      updatedFiles.push({  
+        ...file,  
+        poster: poster,  
+        displayTitle: displayTitle  
+      });  
+    }  
+
+    allFiles = updatedFiles;  
     currentPage = 1;  
-    localStorage.setItem("driveCache", JSON.stringify(allFiles));  
+    localStorage.setItem("driveCacheWithPoster", JSON.stringify(allFiles));  
     loadPage(currentPage);  
+
   } catch (e) {  
     console.error("Drive Fetch Error:", e);  
   }  
@@ -158,4 +170,3 @@ async function fetchFiles() {
 loadFromCache();  
 fetchFiles();  
 setInterval(fetchFiles, 20000);  
-</script>
