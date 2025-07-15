@@ -1,6 +1,7 @@
 const client_key = "275d762c21f3a57f54f0001eefef97ab";
 const api_url = "https://api.themoviedb.org/3";
 const img_path = "https://image.tmdb.org/t/p/w500";
+const placeholder_poster = "https://via.placeholder.com/300x450?text=No+Poster";
 const drive_api = "https://script.google.com/macros/s/AKfycbzh3fRccgpIXlskFuBHcEuWCQkQzWP7Rt8a8BedlgA2dnpI3YDNcOLGKnylmgXGfk7u/exec";
 
 let allFiles = [];
@@ -32,7 +33,7 @@ async function searchTMDB(title, year) {
   let res = await fetch(movieUrl);
   let data = await res.json();
 
-  if (data.results && data.results.length > 0) {
+  if (data.results && data.results.length > 0 && data.results[0].poster_path) {
     const result = { poster: img_path + data.results[0].poster_path, title: data.results[0].title };
     tmdbCache[cacheKey] = result;
     localStorage.setItem("tmdbCache", JSON.stringify(tmdbCache));
@@ -43,7 +44,7 @@ async function searchTMDB(title, year) {
   res = await fetch(tvUrl);
   data = await res.json();
 
-  if (data.results && data.results.length > 0) {
+  if (data.results && data.results.length > 0 && data.results[0].poster_path) {
     const result = { poster: img_path + data.results[0].poster_path, title: data.results[0].name };
     tmdbCache[cacheKey] = result;
     localStorage.setItem("tmdbCache", JSON.stringify(tmdbCache));
@@ -55,9 +56,11 @@ async function searchTMDB(title, year) {
     return await searchTMDB(shortTitle, null);
   }
 
-  tmdbCache[cacheKey] = { poster: null, title: title };
+  // Fallback: No poster found
+  const result = { poster: placeholder_poster, title: title };
+  tmdbCache[cacheKey] = result;
   localStorage.setItem("tmdbCache", JSON.stringify(tmdbCache));
-  return tmdbCache[cacheKey];
+  return result;
 }
 
 function createMovieCard(isNew) {
@@ -69,7 +72,7 @@ function createMovieCard(isNew) {
   skeleton.style.height = "225px";
 
   const img = document.createElement("img");
-  img.style.opacity = "0"; // Initially hidden
+  img.style.opacity = "0";
 
   const caption = document.createElement("div");
   caption.className = "movie-title";
@@ -103,35 +106,16 @@ async function loadPage(page) {
     const { card, img, caption, skeleton } = createMovieCard(isNew);
     container.appendChild(card);
 
-    let poster = file.url;
-    let finalTitle = file.name;
-
-    if (tmdbCache[cacheKey]) {
-      if (tmdbCache[cacheKey].poster) {
-        poster = tmdbCache[cacheKey].poster;
-        finalTitle = tmdbCache[cacheKey].title;
-      } else {
-        poster = file.url;
-        finalTitle = tmdbCache[cacheKey].title;
-      }
-    } else {
-      const tmdbResult = await searchTMDB(title, year);
-      if (tmdbResult && tmdbResult.poster) {
-        poster = tmdbResult.poster;
-        finalTitle = tmdbResult.title;
-      } else {
-        poster = file.url;
-        finalTitle = title;
-      }
-    }
+    const tmdbResult = await searchTMDB(title, year);
 
     img.onload = () => {
       skeleton.style.display = "none";
       img.style.opacity = "1";
+      img.style.transition = "opacity 0.5s";
     };
 
-    img.src = poster;
-    caption.textContent = finalTitle;
+    img.src = tmdbResult.poster;
+    caption.textContent = tmdbResult.title;
   });
 
   await Promise.all(promises);
@@ -163,9 +147,6 @@ function nextPage() {
 async function fetchFiles() {
   const res = await fetch(drive_api + "?t=" + new Date().getTime());
   const files = await res.json();
-
-  const oldFileNames = fileCache.map(f => f.name);
-  const newFiles = files.filter(f => !oldFileNames.includes(f.name));
 
   fileCache = files;
   localStorage.setItem("fileCache", JSON.stringify(fileCache));
