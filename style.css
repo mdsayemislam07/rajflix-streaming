@@ -1,30 +1,28 @@
 body {
-  background: #111;
-  color: #fff;
-  font-family: Arial, sans-serif;
-  margin: 0;
-  padding: 0;
+  background: #121212;
+  color: #eee;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 20px;
+  text-align: center;
 }
 
 h2 {
-  margin: 20px 0;
-  font-size: 24px;
-  text-align: center;
+  margin-bottom: 20px;
 }
 
 #movies {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  padding: 10px;
+  gap: 15px;
 }
 
 .movie {
-  position: relative;
+  background: #222;
+  border-radius: 8px;
   width: 150px;
-  margin: 10px;
-  text-align: center;
-  transition: transform 0.3s;
+  box-shadow: 0 0 10px rgba(0,0,0,0.7);
+  transition: transform 0.2s ease;
 }
 
 .movie:hover {
@@ -33,98 +31,42 @@ h2 {
 
 .movie img {
   width: 100%;
-  border-radius: 10px;
-  box-shadow: 0 0 10px #000;
-  display: block;
-  transition: opacity 0.5s ease-in;
-}
-
-.skeleton {
-  width: 100%;
-  height: 225px;
-  background: linear-gradient(90deg, #333, #444, #333);
-  background-size: 200% 100%;
-  animation: pulse 1.5s infinite;
-  border-radius: 10px;
-}
-
-@keyframes pulse {
-  0% {background-position: -200px 0;}
-  100% {background-position: 200px 0;}
+  border-radius: 8px 8px 0 0;
 }
 
 .movie-title {
-  margin-top: 5px;
+  padding: 8px;
   font-size: 14px;
-  word-wrap: break-word;
-}
-
-.badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: red;
-  color: #fff;
-  padding: 3px 7px;
-  font-size: 10px;
-  border-radius: 5px;
+  font-weight: 600;
+  height: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #pagination {
-  margin: 20px 0;
-  text-align: center;
+  margin-top: 25px;
 }
 
-button {
-  padding: 10px 20px;
-  margin: 5px;
+#pagination button {
+  background-color: #444;
   border: none;
-  background: #444;
-  color: #fff;
+  color: #eee;
+  padding: 10px 15px;
+  margin: 0 5px;
+  font-size: 14px;
   border-radius: 5px;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background-color 0.3s ease;
 }
 
-button:hover:not(:disabled) {
-  background: #666;
-}
-
-button:disabled {
-  background: #222;
+#pagination button:disabled {
+  background-color: #222;
   cursor: not-allowed;
 }
 
-/* Mobile Responsive */
-@media (max-width: 600px) {
-  .movie {
-    width: 45%;
-  }
-
-  .movie-title {
-    font-size: 12px;
-  }
-
-  h2 {
-    font-size: 20px;
-  }
-
-  button {
-    padding: 8px 15px;
-    font-size: 12px;
-  }
-}
-
-/* Tablet */
-@media (min-width: 601px) and (max-width: 1024px) {
-  .movie {
-    width: 30%;
-  }
-}
-
-/* Desktop */
-@media (min-width: 1025px) {
-  .movie {
-    width: 150px;
-  }
+#pagination span {
+  color: #eee;
+  font-weight: 600;
+  font-size: 16px;
+  vertical-align: middle;
 }
