@@ -136,7 +136,7 @@ function nextPage() {
   }
 }
 
-// Fetch Files with Sort (but keep currentPage as is)
+// Fetch Files with Safe Sort (newest first if possible)
 async function fetchFiles() {
   const res = await fetch(drive_api);
   let files = await res.json();
@@ -145,6 +145,7 @@ async function fetchFiles() {
     if (a.modifiedTime && b.modifiedTime) {
       return new Date(b.modifiedTime) - new Date(a.modifiedTime);
     }
+    // fallback to name-based sorting if modifiedTime is not available
     return b.name.localeCompare(a.name);
   });
 
@@ -152,4 +153,4 @@ async function fetchFiles() {
 }
 
 fetchFiles();
-setInterval(fetchFiles, 50 * 1000); // Auto refresh every 20s
+setInterval(fetchFiles, 20 * 1000); // 20 sec auto refresh
