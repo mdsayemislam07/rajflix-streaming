@@ -1,12 +1,12 @@
 const client_key = "275d762c21f3a57f54f0001eefef97ab";
-const api_url = "https://api.themoviedb.org/3";
 const img_path = "https://image.tmdb.org/t/p/w500";
 const drive_api = "https://script.google.com/macros/s/AKfycbzh3fRccgpIXlskFuBHcEuWCQkQzWP7Rt8a8BedlgA2dnpI3YDNcOLGKnylmgXGfk7u/exec";
+const proxy_api = "https://raj-flix.movielovers.workers.dev/";
 
 let allFiles = [];
 let currentPage = 1;
 const itemsPerPage = 20;
-const cache = {};
+const cache = JSON.parse(localStorage.getItem("tmdbCache") || "{}");
 
 function extractTitleAndYear(fileName) {
   let name = fileName.replace(/\.[^/.]+$/, "");
@@ -23,26 +23,21 @@ async function searchTMDB(title, year) {
   const cacheKey = `${title}_${year}`;
   if (cache[cacheKey]) return cache[cacheKey];
 
-  let query = encodeURIComponent(title);
-  let movieUrl = `${api_url}/search/movie?api_key=${client_key}&query=${query}`;
-  if (year) movieUrl += `&year=${year}`;
+  let url = `${proxy_api}?query=${encodeURIComponent(title)}`;
+  if (year) url += `&year=${year}`;
 
-  let res = await fetch(movieUrl);
-  let data = await res.json();
-
-  if (data.results && data.results.length > 0) {
-    const result = { poster: data.results[0].poster_path, title: data.results[0].title };
-    cache[cacheKey] = result;
-    return result;
-  }
-
-  let tvUrl = `${api_url}/search/tv?api_key=${client_key}&query=${query}`;
-  res = await fetch(tvUrl);
-  data = await res.json();
+  const res = await fetch(url);
+  const data = await res.json();
 
   if (data.results && data.results.length > 0) {
-    const result = { poster: data.results[0].poster_path, title: data.results[0].name };
+    let result;
+    if (data.results[0].title) {
+      result = { poster: data.results[0].poster_path, title: data.results[0].title };
+    } else {
+      result = { poster: data.results[0].poster_path, title: data.results[0].name };
+    }
     cache[cacheKey] = result;
+    localStorage.setItem("tmdbCache", JSON.stringify(cache));
     return result;
   }
 
@@ -52,6 +47,7 @@ async function searchTMDB(title, year) {
   }
 
   cache[cacheKey] = null;
+  localStorage.setItem("tmdbCache", JSON.stringify(cache));
   return null;
 }
 
@@ -79,6 +75,18 @@ function createMovieCard(poster, title, isNew) {
   return card;
 }
 
+function createSkeletonCard() {
+  const card = document.createElement("div");
+  card.className = "movie skeleton";
+  const img = document.createElement("div");
+  img.className = "skeleton-img";
+  const caption = document.createElement("div");
+  caption.className = "skeleton-text";
+  card.appendChild(img);
+  card.appendChild(caption);
+  return card;
+}
+
 async function loadPage(page) {
   const container = document.getElementById("movies");
   container.innerHTML = "";
@@ -86,6 +94,11 @@ async function loadPage(page) {
   const start = (page - 1) * itemsPerPage;
   const end = start + itemsPerPage;
   const currentItems = allFiles.slice(start, end);
+
+  // Skeleton Loader
+  for (let i = 0; i < currentItems.length; i++) {
+    container.appendChild(createSkeletonCard());
+  }
 
   const promises = currentItems.map(async (file, index) => {
     const { title, year } = extractTitleAndYear(file.name);
@@ -98,9 +111,11 @@ async function loadPage(page) {
       finalTitle = tmdbResult.title;
     }
 
-    const isNew = index < 8; // Top 8 items will get "New" badge
+    const isNew = index < 8;
     const card = createMovieCard(poster, finalTitle, isNew);
-    container.appendChild(card);
+
+    // Replace skeleton with actual card
+    container.replaceChild(card, container.children[index]);
   });
 
   await Promise.all(promises);
@@ -130,14 +145,19 @@ function nextPage() {
 }
 
 async function fetchFiles() {
-  const res = await fetch(drive_api + "?t=" + new Date().getTime()); // Prevent browser cache
-  const files = await res.json();
+  const res = await fetch(drive_api + "?t=" + new Date().getTime());
+  let files = await res.json();
+
+  // Sort by modifiedTime descending (newest first)
+  files.sort((a, b) => new Date(b.modifiedTime) - new Date(a.modifiedTime));
+
   allFiles = files;
   currentPage = 1;
   loadPage(currentPage);
 }
 
-// Auto Refresh Every 30 Seconds
+// Auto Refresh Every 30 sec
 setInterval(fetchFiles, 30000);
 
+// Initial Load
 fetchFiles();
